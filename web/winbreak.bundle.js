@@ -488,6 +488,15 @@ function scanSource(src, file = "input.js", opts = {}) {
   const findings = [];
   const seen = new Set();
   const push = (rule, lineNo) => {
+    // Minified code. A whole bundle on one line cannot be read by a human or
+    // by this scanner: there is no enclosing block to walk, no guard to find,
+    // and "line 1" tells the reader nothing they can act on. Next.js ships
+    // cross-spawn this way -- the library that exists to FIX .cmd spawning --
+    // and it was reported as a .cmd spawn bug.
+    //
+    // 500 characters, not 1000: os-browserify's entire bundle is one 816-char
+    // line. No human writes a 500-character line.
+    if ((lines[lineNo] || "").length > 500) return;
     if (lines[lineNo] && /winbreak-ignore/.test(lines[lineNo])) return;
     if (lineNo > 0 && /winbreak-ignore-next/.test(lines[lineNo - 1])) return;
     const key = `${rule.id}:${lineNo}`;
