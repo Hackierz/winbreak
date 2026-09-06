@@ -128,7 +128,7 @@ const rules = [
     id: "spawn-cmd-no-shell",
     severity: "bug",
     title: "Spawning a .cmd or .bat without `shell: true`",
-    why: "Windows cannot execute a batch file directly. Node throws EINVAL. This has been the behaviour since the Node 18.20 / 20.12 security fix, so code that once worked now fails.",
+    why: "Windows cannot execute a batch file directly. Node throws EINVAL, and it throws SYNCHRONOUSLY — an error-handling callback never runs, so `if (error) return` does not catch it and a throw inside a timer or event handler becomes an uncaught exception. This has been the behaviour since the Node 18.20.2 / 20.12.2 security fix for CVE-2024-27980, so code that once worked now fails.",
     fix: "Pass `shell: true` in the spawn options, or resolve to the real .exe and spawn that.",
     scope: "call",
     test(call, ctx) {
