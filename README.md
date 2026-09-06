@@ -88,13 +88,14 @@ Latest published tarballs, ranked by real weekly downloads from the npm
 downloads API, scanned with `--include-build` because in a published package
 `dist/` is the product.
 
-    598 packages   32,548 source files
+    599 packages   33,402 source files
 
-    548  (91.6%)  nothing found at all
-     32  ( 5.3%)  smells only
-     18  ( 3.0%)  at least one bug
+    JavaScript          npm scripts
+     18  ( 3.0%)        104  (17.4%)   at least one finding
+     48  findings       214  findings
 
-**Then I read all 48 findings by hand, and that is the part that matters:**
+**Then I read all 48 JavaScript findings by hand, and that is the part that
+matters:**
 
 - **3 are real.** `agent-cli-detector` (4.5M downloads/week) accounts for two:
   `execFileSync("ps", …)` in a `try/catch` returning `""`, in a 326-line file
@@ -110,6 +111,20 @@ downloads API, scanned with `--include-build` because in a published package
   exists for exactly this.
 - **7 were winbreak being wrong.** That is a **15% false-positive rate on
   findings**, and I would rather print it than have you discover it.
+
+**The npm scripts are the more interesting half.** 104 of 599 packages
+(17.4%) have a `package.json` script that cannot run on Windows -- roughly six
+times the JavaScript rate. `rm -rf dist`, `NODE_ENV=test node --test`,
+`for FILE in test/*.js; do ...`. I read 28 of the 214 in full (the top twelve
+by downloads plus sixteen at random) and **all 28 were genuine**, because an
+npm script has no enclosing `if (process.platform === 'win32')` to misread.
+
+But the honest reading is narrower than the number looks: npm runs a package's
+own scripts on your machine only at install time, and **exactly two of the 214
+are install-time scripts**. The rest are `build`, `test` and `clean`. So one in
+six of these packages ships fine to Windows users and cannot be *contributed
+to* from Windows without fixing the build first -- a cost paid silently by
+people who never became contributors.
 
 **I first published "11 are real" and had to correct it to 3.** Four findings
 I had called real turned out to be guarded — three of them in a *different

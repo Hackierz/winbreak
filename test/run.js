@@ -26,7 +26,7 @@ const fired = new Set([...broken, ...brokenPkg].map((f) => f.rule));
 for (const r of rules) ok(fired.has(r.id), r.id);
 
 // The scripts block of a package.json is where the most common Windows bug in
-// the ecosystem lives — cross-env does ~18M downloads a week and exists for no
+// the ecosystem lives — cross-env does ~25M downloads a week and exists for no
 // other reason. Scanning only .js files missed it entirely.
 console.log("\npkg-clean/package.json — correct scripts must not fire");
 const cleanPkg = scanFile(path.join(__dirname, "fixtures", "pkg-clean", "package.json"));

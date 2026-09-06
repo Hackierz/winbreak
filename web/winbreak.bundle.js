@@ -140,7 +140,7 @@ const SCRIPT_SAFE = /^(?:npm|npx|node|yarn|pnpm|bun|deno|tsc|jest|vitest|mocha|e
 const rules = [
   {
     // The single most common Windows portability bug in the ecosystem.
-    // `cross-env` exists solely because of it and does ~18M downloads a week.
+    // `cross-env` exists solely because of it and does ~25M downloads a week.
     // Verified on Windows 11 / npm 11:
     //   > NODE_ENV=production node -e "..."
     //   'NODE_ENV' is not recognized as an internal or external command
@@ -543,7 +543,7 @@ function enclosingBlock(lines, lineNo) {
  * Scan the `scripts` block of a package.json.
  *
  * This is where the most common Windows bug in the ecosystem actually lives —
- * `cross-env` does about 18M downloads a week and exists for no other reason.
+ * `cross-env` does about 25M downloads a week and exists for no other reason.
  * Scanning only .js files missed it completely.
  *
  * Line numbers are found by searching the raw text for the script name, so the
