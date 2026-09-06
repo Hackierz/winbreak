@@ -392,9 +392,13 @@ function enclosingBlock(lines, lineNo) {
   const parts = [];
   let depth = 0;
   let wantElseMate = false;
+  // Text of the sibling block we are currently walking back through, so we can
+  // tell whether it leaves the function before reaching our line.
+  let siblingBody = "";
   const stop = Math.max(0, lineNo - BLOCK_SCAN_LIMIT);
   for (let i = lineNo; i >= stop; i--) {
     const raw = lines[i] || "";
+    if (depth > 0) siblingBody = raw + "\n" + siblingBody;
     // Count braces on the stripped line so a brace inside a string cannot
     // throw off the depth — but collect the ORIGINAL line. Collecting the
     // stripped one turned `if (os === 'linux') {` into `if (os === '') {`,
@@ -427,12 +431,28 @@ function enclosingBlock(lines, lineNo) {
           wantElseMate = /\belse\b/.test(line);
         } else {
           depth--;
-          // Closing brace of the sibling block an `else` belongs to. Its
-          // opener carries the condition, so keep it; an `else if` chain
-          // keeps the flag set and we follow it further back.
-          if (depth === 0 && wantElseMate) {
-            parts.push(raw.trim());
-            wantElseMate = /\belse\b/.test(line);
+          if (depth === 0) {
+            // Closing brace of the sibling block an `else` belongs to. Its
+            // opener carries the condition, so keep it; an `else if` chain
+            // keeps the flag set and we follow it further back.
+            if (wantElseMate) {
+              parts.push(raw.trim());
+              wantElseMate = /\belse\b/.test(line);
+            } else if (
+              // A multi-line early return, which is the same guard as
+              //   if (win32) return;
+              // spread over a block. metaharness does exactly this:
+              //   if (platform === 'win32') { …powershell…; return … }
+              //   spawnSync('ps', …)              // never reached on Windows
+              // The block does not enclose our line, and only leaves before
+              // it, so the brace walk alone never sees the condition.
+              /\bif\b/.test(line) &&
+              /process\.platform|os\.platform\(\)|isWindows|isWin\b|IS_WINDOWS|["'`](?:win32|linux|darwin)["'`]/i.test(raw) &&
+              /\breturn\b|\bthrow\b|process\.exit/.test(siblingBody)
+            ) {
+              parts.push(raw.trim());
+            }
+            siblingBody = "";
           }
         }
       }
