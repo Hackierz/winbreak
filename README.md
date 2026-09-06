@@ -72,61 +72,56 @@ dist/utils/serverManager.js
 All three are genuine. `/tmp` on Windows silently becomes `C:\tmp`, and `rm`
 does not exist, so that delete quietly does nothing.
 
-## I scanned 25 popular CLI packages
+## I scanned the 600 most-downloaded CLI packages
 
-Latest published tarballs, straight from npm, scanned with `--include-build`
-because in a published package `dist/` is the product. Reproduce it exactly:
+Latest published tarballs, ranked by real weekly downloads from the npm
+downloads API, scanned with `--include-build` because in a published package
+`dist/` is the product.
 
-```bash
-npm pack nodemon pm2 mocha eslint prettier typescript rimraf npm-check-updates \
-  concurrently husky lint-staged jest webpack rollup vite esbuild ts-node nx \
-  lerna serve http-server json-server nodegit degit plop
-# extract each, then:
-npx github:Hackierz/winbreak <pkg>/package --include-build
-```
+    599 packages   32,554 source files
 
-    21 of 25  no bugs
-     4 of 25  with findings
+    548  (91.5%)  nothing found at all
+     32  ( 5.3%)  smells only
+     19  ( 3.2%)  at least one bug
 
-**And I do not claim all four are real bugs.** Here is every one:
+**Then I read all 50 findings by hand, and that is the part that matters:**
 
-- **pm2** — 19. pm2 *generates* systemd and init.d scripts, so `/etc/init.d`
-  and `/proc/meminfo` are correct inside a deliberately Linux-only code path.
-- **npm-check-updates** — 3, all from a bundled XDG helper falling back to
-  `/usr/local/share` when `$XDG_DATA_DIRS` is unset. On Windows it is unset.
-  Arguably real, arguably how that library is meant to work. Your call.
-- **nx** — 2, both Linux detection (`readFileSync('/usr/bin/ldd')` to sniff
-  musl). The read is expected to fail elsewhere.
-- **vite** — 2, `/etc/wsl.conf` and an `/opt` constant, both environment
-  detection.
+- **~11 look real.** Mostly `ps` inside a `try/catch`, which on Windows fails
+  silently and hands the caller a false answer. The best one is `pmx`:
+  `execFile('npm.cmd', …)` with no `shell`, and a callback that does
+  `if (error) return`. Since Node 18.20.2 that throws `EINVAL`, so on Windows
+  it quietly collects nothing, forever, and nothing logs a thing.
+- **~37 are deliberately Linux-only.** pm2 writing `/etc/init.d` because its
+  startup feature *is* Linux. oclif running `ln -s` and `sudo chown` in
+  `pack/deb.js`, which builds a Debian package. vite reading `/etc/wsl.conf`
+  to detect WSL. **A checker that reads text cannot see intent**, and
+  pretending otherwise is how a tool stops being trusted. `// winbreak-ignore`
+  exists for exactly this.
+- **2 were winbreak being wrong** — a path inside a Docker image, and a `/tmp`
+  path in a package's `example.js`.
 
-So the honest summary is: **21 clean, 4 with findings that are mostly
-intentional Linux-only code.** winbreak reads text, not intent. That is the
-limitation, `// winbreak-ignore` exists for exactly this, and hiding it behind
-a nicer number would make the tool worth less, not more.
+Full write-up, with every case named:
+**https://opusmill.com/600-packages**
 
-The takeaway is still the useful one: mature packages are mostly fine. A tool
-that lit up on all 25 would be a tool with a broken threshold.
+### The survey's real yield was six bugs in winbreak
 
-### What this survey cost me
+1. **`whoami` was in the POSIX-only list.** It ships with Windows, and has
+   since Vista. *"This is a Unix command" is not "Windows does not have it"* —
+   Windows also has `find`, `sort`, `more`, `where`, `tasklist`, `taskkill`.
+2. **Guard detection did not understand a platform name.** `if (os === 'linux')`
+   was invisible, so correctly guarded code was reported.
+3. **And the first fix still failed**, because `enclosingBlock` recorded the
+   string-stripped line and the guard arrived as `if (os === '')`.
+4. **An early return is a guard** — `if (win32) return;` encloses nothing.
+5. **Handing a `.cmd` to `cmd.exe` was reported as a bug.** That is the fix.
+6. **`rm -rf` matched anywhere in 2,000 characters** of extracted call text,
+   catching a `console.log` of advice meant for a human to read.
 
-Running it found four bugs in **winbreak**, not in the packages:
+Findings on minified lines are suppressed too: Next.js ships `cross-spawn` on
+one line and it was reported as a `.cmd` spawning bug — cross-spawn being the
+library that exists to fix `.cmd` spawning.
 
-1. **nodemon's two "bugs" were mine.** `exec(\`kill -${sig} ${pid}\`)` sits in
-   the `else` half of `if (utils.isWindows) { … } else { … }`, and the branch
-   is 87 lines up. Guard detection used a ±6-line window and could not see it.
-   It walks the enclosing braces now, and follows an `else` back to its `if`.
-   This claim had already been written into this README as fact.
-2. **`dist/` was skipped silently.** Correct for a source repo, badly wrong for
-   a downloaded package — it reported "1 bug in 2 files" for a 43-file package.
-   Still skipped by default, but the count is now printed, and
-   `--include-build` scans it.
-3. **`hardcoded-posix-path` had no guard detection at all.** It flagged
-   `x !== "/usr/bin/esbuild"` (a comparison), `/proc/version` (WSL detection)
-   and the POSIX side of a `process.platform === "win32"` ternary.
-4. **`.d.ts` files were scanned.** They are declarations. Nothing in them runs.
-
-Each has a regression test in `test/run.js`.
+Every one of these is a regression test in `test/fixtures/`.
 
 ## Bugs and smells
 
