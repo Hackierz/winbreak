@@ -14,16 +14,26 @@ npx github:Hackierz/winbreak
 > and needs nothing installed. Once it is published, `npx winbreak` will do the
 > same thing.
 
-## Or paste code into the browser
+## Or use the browser: paste code, or name any npm package
 
-**https://opusmill.com/check** — no install, no account, nothing uploaded.
+**https://opusmill.com/check** — no install, no account.
+
+Paste a snippet, or type a package name and it will scan the published
+package. That runs entirely in your tab: the npm registry allows cross-origin
+fetches and browsers can gunzip, so the tarball goes from npm straight into
+the page, where a small tar reader unpacks it. **eslint's 409 files scan in
+about a second.** There is no server of mine involved, and nothing you paste
+leaves your machine.
+
+`/check?pkg=express` scans on load, so a result is a shareable link.
 
 It runs `lib/rules.js` and `lib/core.js` inlined verbatim by
-`scripts/build-web.js`, so the page reports exactly what the CLI reports. The
-test suite fails if that bundle goes stale. Your code never leaves the browser;
-the page makes no request while you type, and it works with the network off.
+`scripts/build-web.js`, so the page reports exactly what the CLI reports —
+verified against pmx, agent-cli-detector, chalk and eslint. The test suite
+fails if that bundle goes stale.
 
-Use the browser for one snippet. Use the CLI for a repository, or for CI.
+Use the browser for one snippet or one package. Use the CLI for your own
+repository, or for CI.
 
 ## Why this exists
 
