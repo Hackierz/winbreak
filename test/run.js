@@ -54,5 +54,18 @@ const walked = scan(path.join(__dirname, "fixtures"));
 ok(walked.findings.length === 0,
   `walking a test directory still skips it (${walked.findings.length} findings)`);
 
+// The fixtures are never executed, so a broken escape in one would go
+// unnoticed — in a tool that reads other people's JavaScript for a living.
+console.log("\nevery fixture is valid JavaScript");
+const { execFileSync } = require("child_process");
+const fs = require("fs");
+for (const name of fs.readdirSync(path.join(__dirname, "fixtures"))) {
+  const f = path.join(__dirname, "fixtures", name);
+  let good = true;
+  try { execFileSync(process.execPath, ["--check", f], { stdio: "pipe" }); }
+  catch { good = false; }
+  ok(good, name);
+}
+
 console.log(`\n${failed === 0 ? "all green" : failed + " failing"}\n`);
 process.exit(failed === 0 ? 0 : 1);

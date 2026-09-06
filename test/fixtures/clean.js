@@ -52,4 +52,10 @@ function wipe(dir) {
 const API_BASE = "https://api.example.com/v1";
 const endpoint = API_BASE + "/users";
 
-module.exports = { installDeps, startElectron, isRunning, checkNode, assetPath, wipe, BRIDGE_DIR, HOME_CFG, endpoint };
+
+// Prose that MENTIONS a POSIX path is documentation, not a hardcoded path.
+// This exact shape — an escaped quote immediately before the path — appears in
+// winbreak's own rule descriptions and broke its CI.
+const HELP = "on Windows a leading slash means \"/tmp/x\" becomes C:\\tmp\\x";
+
+module.exports = { installDeps, startElectron, isRunning, checkNode, assetPath, wipe, BRIDGE_DIR, HOME_CFG, endpoint, HELP };
