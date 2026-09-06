@@ -157,6 +157,18 @@ const webHits = sandbox.winbreak
 ok(webHits.some((f) => f.rule === "spawn-cmd-no-shell"),
   "it finds the same bug the CLI finds");
 
+// The /check page offers a repaired package.json to copy. If an export goes
+// missing the panel just never appears -- no error, no sign anything is wrong.
+ok(sandbox.winbreak && typeof sandbox.winbreak.fixPackageJson === "function",
+  "it exposes fixPackageJson");
+ok(sandbox.winbreak && typeof sandbox.winbreak.applyToText === "function",
+  "it exposes applyToText");
+const webFix = sandbox.winbreak
+  ? sandbox.winbreak.fixScript("rm -rf dist && NODE_ENV=x rollup -c").fixed
+  : "";
+ok(webFix === "rimraf dist && cross-env NODE_ENV=x rollup -c",
+  "the browser fix agrees with the CLI fix");
+
 // The fixtures are never executed, so a broken escape in one would go
 // unnoticed — in a tool that reads other people's JavaScript for a living.
 console.log("\nevery fixture is valid JavaScript");
