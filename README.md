@@ -57,6 +57,38 @@ dist/utils/serverManager.js
 All three are genuine. `/tmp` on Windows silently becomes `C:\tmp`, and `rm`
 does not exist, so that delete quietly does nothing.
 
+## I scanned 25 popular CLI packages
+
+Latest published versions, straight from npm. The result is the reason to trust
+the tool, and it is not "everything is broken":
+
+    22 of 25 clean
+     3 with findings
+
+- **nodemon** — 2 real ones. `exec(\`kill -${sig} ${pid}\`)` twice in
+  `lib/monitor/run.js`. `kill` is not a Windows command.
+- **pm2** — 22 findings, and **most of them are not bugs**. pm2 generates
+  systemd and init.d scripts, so `/etc/init.d/...` and `/proc/meminfo` are
+  correct in a Linux-only code path. winbreak cannot see intent. This is the
+  honest limitation, and `// winbreak-ignore` exists for exactly this case.
+- **mocha** — 0 bugs. An earlier version reported three, all from `/dev/null`
+  in git-diff parsing. That was winbreak's bug, not mocha's, and it is fixed.
+
+The takeaway is that mature packages are mostly fine. A tool that lit up on all
+25 would be a tool with a broken threshold.
+
+## Bugs and smells
+
+Findings come in two weights:
+
+- **bug** — this fails at runtime on Windows. Exits `1`.
+- **smell** — this works, but it is fragile, or it is the habit that produces
+  the bugs. Reported, but **never fails your build**. Use `--strict` if you
+  want it to.
+
+Failing someone's pipeline over a style opinion is how a tool gets deleted from
+the pipeline.
+
 ## Usage
 
 ```bash
@@ -92,7 +124,7 @@ const q = "/tmp/other";
 | `posix-only-command` | shelling out to `ps`, `which`, `chmod`, `uname` … with no platform guard |
 | `hardcoded-posix-path` | `/tmp`, `/usr`, `/etc`, `/home` … written as a literal |
 | `shell-true-unquoted-path` | `shell: true` with a path that can contain spaces |
-| `posix-path-concat` | building a path with `+ "/"` instead of `path.join` |
+| `posix-path-concat` | building a path with `+ "/"` instead of `path.join` *(smell)* |
 | `case-sensitive-rm` | `rm -rf` used to delete a directory |
 
 `npx winbreak --rules` prints the reasoning and the fix for each.

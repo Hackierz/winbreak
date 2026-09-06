@@ -17,6 +17,7 @@ Options
   --json                     machine-readable output
   --quiet                    only the summary line
   --rules                    list the rules and exit
+  --strict                   also fail the build on smells, not just bugs
   --include-tests            also scan test files (skipped by default)
   --no-exit-code             always exit 0, even with findings
   -h, --help                 this
@@ -38,6 +39,7 @@ if (args.includes("--rules")) {
 const json = args.includes("--json");
 const quiet = args.includes("--quiet");
 const noExit = args.includes("--no-exit-code");
+const strict = args.includes("--strict");
 const target = args.find((a) => !a.startsWith("-")) || ".";
 
 let result;
@@ -52,7 +54,8 @@ if (json) {
   console.log(JSON.stringify(
     { scanned: result.files, count: result.findings.length, findings: result.findings },
     null, 2));
-  process.exit(noExit || result.findings.length === 0 ? 0 : 1);
+  const jsonBugs = result.findings.filter((f) => f.severity !== "smell").length;
+  process.exit(noExit || (strict ? result.findings.length : jsonBugs) === 0 ? 0 : 1);
 }
 
 const tty = process.stdout.isTTY;
@@ -74,7 +77,8 @@ if (!quiet) {
   for (const [file, list] of byFile) {
     console.log(`\n${bold(path.relative(process.cwd(), file) || file)}`);
     for (const f of list) {
-      console.log(`  ${yellow(String(f.line).padStart(5))}  ${red(f.title)}  ${dim(f.rule)}`);
+      const tag = f.severity === "smell" ? yellow("smell") : red("bug  ");
+      console.log(`  ${dim(String(f.line).padStart(5))}  ${tag}  ${bold(f.title)}  ${dim(f.rule)}`);
       if (f.source) console.log(`         ${dim(f.source)}`);
       console.log(`         ${dim("why:")} ${f.why}`);
       console.log(`         ${cyan("fix:")} ${f.fix}`);
@@ -82,16 +86,25 @@ if (!quiet) {
   }
 }
 
+const bugs = result.findings.filter((f) => f.severity !== "smell").length;
+const smells = result.findings.length - bugs;
 const n = result.findings.length;
+
 console.log();
 if (n === 0) {
   console.log(green(`✓ nothing found — scanned ${result.files} file${result.files === 1 ? "" : "s"}`));
 } else {
-  const kinds = new Set(result.findings.map((f) => f.rule)).size;
-  console.log(
-    `${red(`${n} finding${n === 1 ? "" : "s"}`)} across ${kinds} rule${kinds === 1 ? "" : "s"} ` +
-    `in ${result.files} file${result.files === 1 ? "" : "s"}`);
+  const parts = [];
+  if (bugs) parts.push(red(`${bugs} bug${bugs === 1 ? "" : "s"}`));
+  if (smells) parts.push(yellow(`${smells} smell${smells === 1 ? "" : "s"}`));
+  console.log(`${parts.join(" and ")} in ${result.files} file${result.files === 1 ? "" : "s"}`);
   console.log(dim("these are heuristics — read each one before you change anything"));
+  if (smells && !bugs && !strict) {
+    console.log(dim("smells do not fail the build; use --strict if you want them to"));
+  }
 }
 
-process.exit(noExit || n === 0 ? 0 : 1);
+// A smell is a judgement call about style. Failing someone's pipeline over one
+// is how a tool gets removed from the pipeline. Only bugs exit non-zero.
+const failing = strict ? n : bugs;
+process.exit(noExit || failing === 0 ? 0 : 1);
