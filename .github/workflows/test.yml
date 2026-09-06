@@ -1,0 +1,48 @@
+name: test
+
+# A tool that claims to find Windows bugs has to prove it runs on Windows.
+# Running the suite only on Linux would be exactly the mistake this tool exists
+# to catch, so Windows is first in the matrix and is not allowed to fail.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        node: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Tests
+        run: node test/run.js
+
+      - name: CLI runs and reports a clean tree correctly
+        run: node bin/cli.js lib
+
+      - name: CLI exits 1 when it finds something
+        shell: bash
+        run: |
+          # The fixture is full of deliberate bugs. Exit 0 here would mean the
+          # checker is silently passing broken code, which is worse than useless.
+          if node bin/cli.js test/fixtures/broken.js --quiet; then
+            echo "FAIL: expected exit 1 on the broken fixture, got 0"
+            exit 1
+          fi
+          echo "ok: exited non-zero as expected"
+
+      - name: Package builds
+        run: npm pack --dry-run
