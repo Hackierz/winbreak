@@ -180,6 +180,38 @@ const rules = [
       const m = line.match(/(?:^|[^\\])["'`](\/[a-z]+)[\/"'`]/);
       if (!m || !POSIX_DIRS.includes(m[1])) return false;
 
+      // A POSIX path inside a sentence is a message, not a path. pm2 has
+      //   printError('/etc/logrotate.d does not exist we can not copy...')
+      // which is a string about a path, and reporting it is pure noise.
+      const literal = line.match(/(["'`])(\/[a-z][^"'`]*)\1/);
+      if (literal && /\s/.test(literal[2])) return false;
+
+      // Same idea, from the other direction: the line is reporting something,
+      // not touching the disk.
+      if (/console\.|\bthrow\b|printError|\blog(ger)?\s*\(|\bwarn\s*\(|\bError\s*\(/.test(line)) {
+        return false;
+      }
+
+      // The path is not on this machine. firebase-tools has
+      // `.copyForFirebase("/home/firebase/app", …)` — a path inside a Docker
+      // image — and sandbox-cli-detector sets HOME=/home/vercel-sandbox for a
+      // remote sandbox. Both are correct, and neither is a local path.
+      const around = (ctx && (ctx.nearby || "")) + " " + line;
+      if (/docker|container|\bimage\b|sandbox|remote|\bssh\b|dockerfile|podman/i.test(around)) {
+        return false;
+      }
+
+      // Finally, and this is the big one: require some sign the string is
+      // actually used as a filesystem path. Next.js passes
+      // '/tmp/NEXTJS_CSS_DETECTION_FILE.scss' to webpack as a synthetic module
+      // identifier that never touches a disk on any platform. Without this
+      // check, a string is guilty purely for starting with a slash.
+      const usedAsPath =
+        /\b(path|fs|fsp|fse)\s*\.\s*\w+\s*\(/.test(line) ||
+        /\b(existsSync|readFile|writeFile|readdir|mkdir|rmSync|rmdir|unlink|stat|lstat|access|realpath|createReadStream|createWriteStream|copyFile|chmod|open)\w*\s*\(/.test(line) ||
+        /\b\w*(dir|path|file|folder|root|home|socket|tmp|temp|dest|target|cwd|location)\w*\s*[=:]/i.test(line);
+      if (!usedAsPath) return false;
+
       // Comparing against a POSIX path is not using one. esbuild ships
       //   const isValidBinaryPath = (x) => !!x && x !== "/usr/bin/esbuild";
       // which is correct on every platform: on Windows nothing equals it.
