@@ -1,0 +1,7 @@
+# Normalise line endings everywhere...
+* text=auto
+
+# ...except this one. It is the regression fixture for the CRLF line-number
+# bug, so it MUST stay CRLF in every checkout or the test silently stops
+# testing anything.
+test/fixtures/crlf.js text eol=crlf
