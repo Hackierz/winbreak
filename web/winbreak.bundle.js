@@ -38,9 +38,20 @@
 /** Commands that simply do not exist on a stock Windows install. */
 const POSIX_ONLY = [
   "ps", "which", "uname", "chmod", "chown", "ln", "df", "du",
-  "whoami", "id", "kill", "pkill", "killall", "sed", "awk", "grep",
+  "id", "kill", "pkill", "killall", "sed", "awk", "grep",
   "readlink", "dirname", "basename", "mktemp", "touch", "sudo",
 ];
+
+/*
+ * `whoami` was in the list above and should not have been. It ships with
+ * Windows and has since Vista -- `whoami.exe` lives in System32. Surveying 600
+ * packages reported `exec('whoami')` in pm2 and bugsnag-build-reporter as
+ * bugs, and both are perfectly fine on Windows.
+ *
+ * Worth stating the general trap: "this is a Unix command" is not the same as
+ * "Windows does not have it". Windows also has `find`, `sort`, `more`, `echo`,
+ * `where` (the `which` equivalent), `tasklist` and `taskkill`.
+ */
 
 /**
  * Directories that exist on POSIX and not on Windows.
@@ -81,7 +92,15 @@ const POSIX_DIRS = ["/tmp", "/usr", "/etc", "/var", "/home", "/opt", "/root"]; /
  */
 function isPlatformGuarded(ctx) {
   const scope = (ctx && (ctx.guardScope || ctx.nearby)) || "";
-  return /process\.platform|os\.platform\(\)|isWindows|isWin\b|IS_WINDOWS/i.test(scope);
+  if (/process\.platform|os\.platform\(\)|isWindows|isWin\b|IS_WINDOWS/i.test(scope)) {
+    return true;
+  }
+  // A comparison against a platform name, whatever the variable is called.
+  // agent-browser stores the platform in a local `os` and branches with
+  // `if (os === 'linux')` — correct code, with a separate `os === 'win32'`
+  // block right below it, and the original check could not see either.
+  return /[=!]==?\s*["'`](?:linux|darwin|win32|aix|freebsd|openbsd|sunos|android)["'`]/.test(scope) ||
+         /["'`](?:linux|darwin|win32|aix|freebsd|openbsd|sunos|android)["'`]\s*[=!]==?/.test(scope);
 }
 
 /**
@@ -122,6 +141,12 @@ const rules = [
         if (first && ctx.cmdVars.has(first[1])) batch = true;
       }
       if (!batch) return false;
+      // Handing the batch file to cmd.exe *is* the fix, so code that already
+      // does it must not be reported. projen ships
+      //   cp.spawn(isWindowsBatch ? "cmd.exe" : path, …)
+      // which is exactly right, and the earlier version called it a bug
+      // because it saw ".cmd" in the call and no `shell:` option.
+      if (/cmd\.exe|comspec/i.test(call)) return false;
       return !hasShell(call);
     },
   },
@@ -272,7 +297,13 @@ const rules = [
     scope: "call",
     test(call, ctx) {
       if (!/\bexec(Sync)?\s*\(/.test(call)) return false;
-      if (!/rm\s+-[rf]/.test(call)) return false;
+      // The `rm` has to be in the command being run, not merely somewhere in
+      // the call text. Extraction grabs up to 2000 characters, so a long
+      // callback can drag in unrelated code. sails-generate was reported
+      // because a `console.log('    rm -rf node_modules && npm install')`
+      // — advice printed for the user to read — fell inside that window.
+      const firstArg = call.match(/\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/);
+      if (!firstArg || !/\brm\s+-[rf]/.test(firstArg[2])) return false;
       return !isPlatformGuarded(ctx);
     },
   },
@@ -363,13 +394,36 @@ function enclosingBlock(lines, lineNo) {
   let wantElseMate = false;
   const stop = Math.max(0, lineNo - BLOCK_SCAN_LIMIT);
   for (let i = lineNo; i >= stop; i--) {
-    const line = stripStrings(lines[i] || "");
+    const raw = lines[i] || "";
+    // Count braces on the stripped line so a brace inside a string cannot
+    // throw off the depth — but collect the ORIGINAL line. Collecting the
+    // stripped one turned `if (os === 'linux') {` into `if (os === '') {`,
+    // which hid the platform name from guard detection and made a correctly
+    // guarded `which` call in agent-browser look unguarded.
+    const line = stripStrings(raw);
+
+    // An early return is a guard too:
+    //     if (process.platform === "win32") return;
+    //     exec("ps ...");            // never reached on Windows
+    // It is not a block that encloses the finding, so the brace walk alone
+    // cannot see it. Collect it when we are still at the finding's own nesting
+    // level (depth 0) and the line both names a platform and leaves.
+    if (
+      depth === 0 &&
+      i !== lineNo &&
+      /\bif\b/.test(line) &&
+      /\breturn\b|\bthrow\b|process\.exit/.test(line) &&
+      /process\.platform|os\.platform\(\)|isWindows|isWin\b|IS_WINDOWS|["'`](?:win32|linux|darwin)["'`]/i.test(raw)
+    ) {
+      parts.push(raw.trim());
+    }
+
     for (let k = line.length - 1; k >= 0; k--) {
       const c = line[k];
       if (c === "}") depth++;
       else if (c === "{") {
         if (depth === 0) {
-          parts.push(line.trim());
+          parts.push(raw.trim());
           wantElseMate = /\belse\b/.test(line);
         } else {
           depth--;
@@ -377,7 +431,7 @@ function enclosingBlock(lines, lineNo) {
           // opener carries the condition, so keep it; an `else if` chain
           // keeps the flag set and we follow it further back.
           if (depth === 0 && wantElseMate) {
-            parts.push(line.trim());
+            parts.push(raw.trim());
             wantElseMate = /\belse\b/.test(line);
           }
         }

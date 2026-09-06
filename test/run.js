@@ -76,6 +76,16 @@ const mixed = scanFile(path.join(__dirname, "fixtures", "unguarded-mixed.js"));
 ok(mixed.some((f) => f.rule === "case-sensitive-rm"),
   `the unguarded rm -rf still fires (${mixed.length} findings)`);
 
+// Regression: four false-positive classes found by scanning the 600
+// most-downloaded npm CLI packages and then reading every finding by hand.
+// Counting was easy; being right about the count was not.
+console.log("\nsurvey-regressions.js -- correct code that was reported");
+const surveyFile = path.join(__dirname, "fixtures", "survey-regressions.js");
+const surveyBugs = scanFile(surveyFile).filter((f) => f.severity !== "smell");
+ok(surveyBugs.length === 0,
+  `0 bugs in code that is correct (got ${surveyBugs.length}: ` +
+  `${surveyBugs.map((f) => f.rule + "@" + f.line).join(", ")})`);
+
 // Regression: `dist/` is generated output in a source repo, but it is the
 // entire product in a package downloaded from npm. Skipping it silently
 // reported "1 bug in 2 files" for a 43-file package — a clean bill of health
