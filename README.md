@@ -1,5 +1,7 @@
 # winbreak
 
+[![test](https://github.com/Hackierz/winbreak/actions/workflows/test.yml/badge.svg)](https://github.com/Hackierz/winbreak/actions/workflows/test.yml)
+
 Finds the code in a Node project that works on macOS and Linux and breaks on Windows.
 
 No dependencies. No config. One command.
@@ -127,6 +129,16 @@ Every rule ships with two fixtures: one where it must fire, one of correct code
 where it must not. `npm test` runs both. A false positive is treated as a bug
 of equal weight to a miss — a checker that cries wolf gets uninstalled after
 one run.
+
+## Tested where it matters
+
+The suite runs on **Windows, macOS and Linux**, across Node 18, 20 and 22 —
+nine jobs, all required to pass. A tool that claims to find Windows bugs has
+no business being tested only on Linux.
+
+CI also asserts the CLI exits non-zero on the broken fixture. A checker that
+exits 0 on bad code passes your pipeline while lying to you, which is worse
+than having no checker at all.
 
 ## Licence
 
