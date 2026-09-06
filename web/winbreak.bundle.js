@@ -175,7 +175,7 @@ const rules = [
     id: "posix-only-command",
     severity: "bug",
     title: "Shelling out to a command that does not exist on Windows",
-    why: "The process exits non-zero or the call throws. When that happens inside a try/catch the failure is swallowed and the symptom shows up somewhere else entirely.",
+    why: "The process exits non-zero or the call throws ENOENT. When that happens inside a try/catch the failure is swallowed and the symptom shows up somewhere else entirely. Note it may still work on YOUR machine: Git for Windows ships ps, which, grep, sed, rm and ls in its usr/bin, and Git Bash puts that directory on PATH while the system PATH does not. So the same code succeeds from Git Bash and throws ENOENT from PowerShell, cmd, a service or a CI runner.",
     fix: "Branch on `process.platform`, or use a cross-platform library, or do the same job in Node itself.",
     scope: "call",
     test(call, ctx) {
