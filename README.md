@@ -78,32 +78,38 @@ Latest published tarballs, ranked by real weekly downloads from the npm
 downloads API, scanned with `--include-build` because in a published package
 `dist/` is the product.
 
-    599 packages   32,554 source files
+    598 packages   32,548 source files
 
-    548  (91.5%)  nothing found at all
+    548  (91.6%)  nothing found at all
      32  ( 5.3%)  smells only
-     19  ( 3.2%)  at least one bug
+     18  ( 3.0%)  at least one bug
 
-**Then I read all 50 findings by hand, and that is the part that matters:**
+**Then I read all 48 findings by hand, and that is the part that matters:**
 
-- **~11 look real.** Mostly `ps` inside a `try/catch`, which on Windows fails
-  silently and hands the caller a false answer. The best one is `pmx`:
+- **3 are real.** `agent-cli-detector` (4.5M downloads/week) accounts for two:
+  `execFileSync("ps", …)` in a `try/catch` returning `""`, in a 326-line file
+  with **no mention of platform, win32, darwin or linux anywhere**. On Windows
+  its whole process-tree detection silently finds nothing. The third is `pmx`:
   `execFile('npm.cmd', …)` with no `shell`, and a callback that does
-  `if (error) return`. Since Node 18.20.2 that throws `EINVAL`, so on Windows
-  it quietly collects nothing, forever, and nothing logs a thing.
-- **~37 are deliberately Linux-only.** pm2 writing `/etc/init.d` because its
+  `if (error) return`, so it quietly collects nothing on Windows, forever.
+- **38 are deliberately Linux-only.** pm2 writing `/etc/init.d` because its
   startup feature *is* Linux. oclif running `ln -s` and `sudo chown` in
   `pack/deb.js`, which builds a Debian package. vite reading `/etc/wsl.conf`
   to detect WSL. **A checker that reads text cannot see intent**, and
   pretending otherwise is how a tool stops being trusted. `// winbreak-ignore`
   exists for exactly this.
-- **2 were winbreak being wrong** — a path inside a Docker image, and a `/tmp`
-  path in a package's `example.js`.
+- **7 were winbreak being wrong.** That is a **15% false-positive rate on
+  findings**, and I would rather print it than have you discover it.
 
-Full write-up, with every case named:
-**https://opusmill.com/600-packages**
+**I first published "11 are real" and had to correct it to 3.** Four findings
+I had called real turned out to be guarded — three of them in a *different
+function* than the call, which a one-file text scanner cannot see. That
+correction is written up rather than quietly edited out.
 
-### The survey's real yield was six bugs in winbreak
+Full write-up: **https://opusmill.com/600-packages**
+Every result, searchable: **https://opusmill.com/packages**
+
+### The survey's real yield was seven bugs in winbreak
 
 1. **`whoami` was in the POSIX-only list.** It ships with Windows, and has
    since Vista. *"This is a Unix command" is not "Windows does not have it"* —
@@ -112,9 +118,11 @@ Full write-up, with every case named:
    was invisible, so correctly guarded code was reported.
 3. **And the first fix still failed**, because `enclosingBlock` recorded the
    string-stripped line and the guard arrived as `if (os === '')`.
-4. **An early return is a guard** — `if (win32) return;` encloses nothing.
-5. **Handing a `.cmd` to `cmd.exe` was reported as a bug.** That is the fix.
-6. **`rm -rf` matched anywhere in 2,000 characters** of extracted call text,
+4. **A single-line early return is a guard** — `if (win32) return;` encloses
+   nothing.
+5. **So is the block form** — `if (win32) { …; return }` above the call.
+6. **Handing a `.cmd` to `cmd.exe` was reported as a bug.** That is the fix.
+7. **`rm -rf` matched anywhere in 2,000 characters** of extracted call text,
    catching a `console.log` of advice meant for a human to read.
 
 Findings on minified lines are suppressed too: Next.js ships `cross-spawn` on
@@ -122,6 +130,13 @@ one line and it was reported as a `.cmd` spawning bug — cross-spawn being the
 library that exists to fix `.cmd` spawning.
 
 Every one of these is a regression test in `test/fixtures/`.
+
+### What it still cannot do
+
+**Cross-function analysis.** If the platform check lives in the caller and the
+POSIX-only call lives in a helper, winbreak reports the helper. Three of the
+seven false positives above are exactly this shape. Reading one file at a time
+is the design, and this is the cost of it.
 
 ## Bugs and smells
 
