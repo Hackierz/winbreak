@@ -12,7 +12,7 @@ npx winbreak
 
 ## Why this exists
 
-On 6 September 2026 I tried to install Coinbase's own Agentic Wallet on a
+In September 2026 I tried to install Coinbase's own Agentic Wallet on a
 Windows machine. It failed four separate times, in four different ways, and
 every failure was invisible on macOS:
 
@@ -142,4 +142,4 @@ than having no checker at all.
 
 ## Licence
 
-MIT. Made by [Evan Bo](https://opusmill.com) at OpusMill.
+MIT. Made by [OpusMill](https://opusmill.com).

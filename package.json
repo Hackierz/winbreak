@@ -13,7 +13,7 @@
     "ci"
   ],
   "license": "MIT",
-  "author": "Evan Bo (https://opusmill.com)",
+  "author": "OpusMill (https://opusmill.com)",
   "homepage": "https://opusmill.com",
   "type": "commonjs",
   "bin": {
