@@ -51,7 +51,7 @@ dist/utils/serverManager.js
      70  `rm -rf` used to delete a directory          case-sensitive-rm
          execSync(`rm -rf "${bundleDir}"`, { stdio: 'pipe' });
 
-3 findings across 2 rules in 82 files
+3 bugs in 68 files
 ```
 
 All three are genuine. `/tmp` on Windows silently becomes `C:\tmp`, and `rm`
@@ -59,23 +59,59 @@ does not exist, so that delete quietly does nothing.
 
 ## I scanned 25 popular CLI packages
 
-Latest published versions, straight from npm. The result is the reason to trust
-the tool, and it is not "everything is broken":
+Latest published tarballs, straight from npm, scanned with `--include-build`
+because in a published package `dist/` is the product. Reproduce it exactly:
 
-    22 of 25 clean
-     3 with findings
+```bash
+npm pack nodemon pm2 mocha eslint prettier typescript rimraf npm-check-updates \
+  concurrently husky lint-staged jest webpack rollup vite esbuild ts-node nx \
+  lerna serve http-server json-server nodegit degit plop
+# extract each, then:
+npx winbreak <pkg>/package --include-build
+```
 
-- **nodemon** — 2 real ones. `exec(\`kill -${sig} ${pid}\`)` twice in
-  `lib/monitor/run.js`. `kill` is not a Windows command.
-- **pm2** — 22 findings, and **most of them are not bugs**. pm2 generates
-  systemd and init.d scripts, so `/etc/init.d/...` and `/proc/meminfo` are
-  correct in a Linux-only code path. winbreak cannot see intent. This is the
-  honest limitation, and `// winbreak-ignore` exists for exactly this case.
-- **mocha** — 0 bugs. An earlier version reported three, all from `/dev/null`
-  in git-diff parsing. That was winbreak's bug, not mocha's, and it is fixed.
+    21 of 25  no bugs
+     4 of 25  with findings
 
-The takeaway is that mature packages are mostly fine. A tool that lit up on all
-25 would be a tool with a broken threshold.
+**And I do not claim all four are real bugs.** Here is every one:
+
+- **pm2** — 19. pm2 *generates* systemd and init.d scripts, so `/etc/init.d`
+  and `/proc/meminfo` are correct inside a deliberately Linux-only code path.
+- **npm-check-updates** — 3, all from a bundled XDG helper falling back to
+  `/usr/local/share` when `$XDG_DATA_DIRS` is unset. On Windows it is unset.
+  Arguably real, arguably how that library is meant to work. Your call.
+- **nx** — 2, both Linux detection (`readFileSync('/usr/bin/ldd')` to sniff
+  musl). The read is expected to fail elsewhere.
+- **vite** — 2, `/etc/wsl.conf` and an `/opt` constant, both environment
+  detection.
+
+So the honest summary is: **21 clean, 4 with findings that are mostly
+intentional Linux-only code.** winbreak reads text, not intent. That is the
+limitation, `// winbreak-ignore` exists for exactly this, and hiding it behind
+a nicer number would make the tool worth less, not more.
+
+The takeaway is still the useful one: mature packages are mostly fine. A tool
+that lit up on all 25 would be a tool with a broken threshold.
+
+### What this survey cost me
+
+Running it found four bugs in **winbreak**, not in the packages:
+
+1. **nodemon's two "bugs" were mine.** `exec(\`kill -${sig} ${pid}\`)` sits in
+   the `else` half of `if (utils.isWindows) { … } else { … }`, and the branch
+   is 87 lines up. Guard detection used a ±6-line window and could not see it.
+   It walks the enclosing braces now, and follows an `else` back to its `if`.
+   This claim had already been written into this README as fact.
+2. **`dist/` was skipped silently.** Correct for a source repo, badly wrong for
+   a downloaded package — it reported "1 bug in 2 files" for a 43-file package.
+   Still skipped by default, but the count is now printed, and
+   `--include-build` scans it.
+3. **`hardcoded-posix-path` had no guard detection at all.** It flagged
+   `x !== "/usr/bin/esbuild"` (a comparison), `/proc/version` (WSL detection)
+   and the POSIX side of a `process.platform === "win32"` ternary.
+4. **`.d.ts` files were scanned.** They are declarations. Nothing in them runs.
+
+Each has a regression test in `test/run.js`.
 
 ## Bugs and smells
 
@@ -97,9 +133,15 @@ npx winbreak src             # scan a directory
 npx winbreak lib/thing.js    # scan one file
 npx winbreak --json          # machine-readable
 npx winbreak --rules         # what it looks for, and why
+npx winbreak --include-build # also scan dist/ build/ out/
 ```
 
-Exit code is `1` when anything is found, so it drops straight into CI:
+`dist/`, `build/` and `out/` are skipped by default, because in a source repo
+they are generated and you would get every finding twice. It always tells you
+how many files that hid. In a package downloaded from npm they are the whole
+product, so use `--include-build` there.
+
+Exit code is `1` when a **bug** is found, so it drops straight into CI:
 
 ```yaml
 - run: npx winbreak

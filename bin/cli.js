@@ -19,6 +19,7 @@ Options
   --rules                    list the rules and exit
   --strict                   also fail the build on smells, not just bugs
   --include-tests            also scan test files (skipped by default)
+  --include-build            also scan dist/ build/ out/ (skipped by default)
   --no-exit-code             always exit 0, even with findings
   -h, --help                 this
 
@@ -44,7 +45,10 @@ const target = args.find((a) => !a.startsWith("-")) || ".";
 
 let result;
 try {
-  result = scan(path.resolve(target), { includeTests: args.includes("--include-tests") });
+  result = scan(path.resolve(target), {
+    includeTests: args.includes("--include-tests"),
+    includeBuild: args.includes("--include-build"),
+  });
 } catch (e) {
   console.error(`winbreak: cannot read ${target} — ${e.message}`);
   process.exit(2);
@@ -52,7 +56,12 @@ try {
 
 if (json) {
   console.log(JSON.stringify(
-    { scanned: result.files, count: result.findings.length, findings: result.findings },
+    {
+      scanned: result.files,
+      skippedBuild: result.skippedBuild,
+      count: result.findings.length,
+      findings: result.findings,
+    },
     null, 2));
   const jsonBugs = result.findings.filter((f) => f.severity !== "smell").length;
   process.exit(noExit || (strict ? result.findings.length : jsonBugs) === 0 ? 0 : 1);
@@ -102,6 +111,17 @@ if (n === 0) {
   if (smells && !bugs && !strict) {
     console.log(dim("smells do not fail the build; use --strict if you want them to"));
   }
+}
+
+// Never let a skipped directory pass for a clean bill of health. On a package
+// downloaded from npm, dist/ IS the shipped code, and staying quiet about it
+// would be the same silent failure this tool was written to catch.
+const sb = result.skippedBuild;
+if (sb && sb.files > 0) {
+  console.log(dim(
+    `note: skipped ${sb.files} file${sb.files === 1 ? "" : "s"} in ` +
+    `${sb.dirs.map((d) => d + "/").join(", ")} — ` +
+    `rerun with --include-build to scan build output`));
 }
 
 // A smell is a judgement call about style. Failing someone's pipeline over one

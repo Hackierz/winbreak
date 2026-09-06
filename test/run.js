@@ -47,6 +47,7 @@ ok(spawnHit && spawnHit.line === 15,
 // file full of bugs — and exited 0 while doing it.
 console.log("\nan explicit file argument beats the test-file filter");
 const { scan } = require("../lib/scan");
+const fs = require("fs");
 const direct = scan(path.join(__dirname, "fixtures", "broken.js"));
 ok(direct.findings.length > 0,
   `named fixture is scanned (${direct.findings.length} findings)`);
@@ -54,11 +55,54 @@ const walked = scan(path.join(__dirname, "fixtures"));
 ok(walked.findings.length === 0,
   `walking a test directory still skips it (${walked.findings.length} findings)`);
 
+// Regression: a platform guard can sit ~90 lines above the call it protects,
+// in the `if` half of an if/else. winbreak reported nodemon's correct POSIX-only
+// kill path as two bugs, and that claim went into the README as fact before I
+// re-read it. Guard detection walks enclosing braces now, and follows an `else`
+// back to its `if`.
+console.log("\nguarded.js — a distant platform guard must suppress");
+const guarded = scanFile(path.join(__dirname, "fixtures", "guarded.js"));
+const guardedBugs = guarded.filter((f) => f.severity !== "smell");
+ok(guardedBugs.length === 0,
+  `0 bugs in correctly guarded code (got ${guardedBugs.length}: ` +
+  `${guardedBugs.map((f) => f.rule + "@" + f.line).join(", ")})`);
+
+// The other half of the same trade. The first fix for the above was a flat
+// 90-line look-back, which suppressed a genuine `rm -rf` in Coinbase's awal
+// because the same FILE mentioned win32 in a different function. Precision in
+// one direction must not cost recall in the other.
+console.log("\nunguarded-mixed.js — win32 elsewhere in the file must NOT suppress");
+const mixed = scanFile(path.join(__dirname, "fixtures", "unguarded-mixed.js"));
+ok(mixed.some((f) => f.rule === "case-sensitive-rm"),
+  `the unguarded rm -rf still fires (${mixed.length} findings)`);
+
+// Regression: `dist/` is generated output in a source repo, but it is the
+// entire product in a package downloaded from npm. Skipping it silently
+// reported "1 bug in 2 files" for a 43-file package — a clean bill of health
+// on unscanned code, which is the exact failure mode this tool complains about.
+console.log("\nskipped build output is reported, not hidden");
+// Built outside test/ on purpose: anything under a "fixtures" segment is
+// hidden by the test-file filter, which would make this test pass for the
+// wrong reason.
+const os = require("os");
+const pkgDir = fs.mkdtempSync(path.join(os.tmpdir(), "winbreak-pkg-"));
+fs.mkdirSync(path.join(pkgDir, "dist"), { recursive: true });
+fs.writeFileSync(path.join(pkgDir, "index.js"), "module.exports = 1;\n");
+fs.copyFileSync(path.join(__dirname, "fixtures", "unguarded-mixed.js"),
+  path.join(pkgDir, "dist", "serverManager.js"));
+const skipRun = scan(pkgDir);
+ok(skipRun.skippedBuild.files === 1,
+  `counts the skipped file (got ${skipRun.skippedBuild.files})`);
+ok(skipRun.skippedBuild.dirs.includes("dist"), "names dist/ as skipped");
+const buildRun = scan(pkgDir, { includeBuild: true });
+ok(buildRun.findings.some((f) => f.rule === "case-sensitive-rm"),
+  "--include-build finds the bug inside dist/");
+fs.rmSync(pkgDir, { recursive: true, force: true });
+
 // The fixtures are never executed, so a broken escape in one would go
 // unnoticed — in a tool that reads other people's JavaScript for a living.
 console.log("\nevery fixture is valid JavaScript");
 const { execFileSync } = require("child_process");
-const fs = require("fs");
 for (const name of fs.readdirSync(path.join(__dirname, "fixtures"))) {
   const f = path.join(__dirname, "fixtures", name);
   let good = true;
