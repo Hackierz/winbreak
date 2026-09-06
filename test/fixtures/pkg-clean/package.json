@@ -1,0 +1,17 @@
+{
+  "name": "pkg-clean",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cross-env NODE_ENV=production node build.js",
+    "clean": "rimraf dist",
+    "copy": "copyfiles -u 1 src/**/*.css dist",
+    "mk": "mkdirp dist/assets",
+    "test": "node --test",
+    "lint": "eslint . && prettier --check .",
+    "start": "node server.js",
+    "version-echo": "echo $npm_package_version",
+    "mkdir-plain": "mkdir dist",
+    "parallel": "npm-run-all --parallel lint test"
+  }
+}

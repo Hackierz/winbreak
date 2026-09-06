@@ -121,7 +121,78 @@ function shellOnWindows(call) {
     /shell\s*:\s*[^,}]*(?:win32|isWin|isWindows)/i.test(call);
 }
 
+/**
+ * Commands that will not run from an npm script on Windows.
+ *
+ * Wider than POSIX_ONLY, because an npm script runs through cmd.exe rather
+ * than being spawned directly, and cmd has its own much smaller vocabulary.
+ * `mkdir` exists but not `mkdir -p`; `echo` exists and is fine.
+ */
+const SCRIPT_POSIX_ONLY = [
+  "rm", "cp", "mv", "cat", "touch", "ln", "chmod", "chown", "which",
+  "sed", "awk", "grep", "ps", "kill", "pkill", "export", "source",
+  "true", "false", "pwd", "uname", "sleep", "head", "tail", "wc", "du", "df",
+];
+
+/** Things that are fine and must not be mistaken for the above. */
+const SCRIPT_SAFE = /^(?:npm|npx|node|yarn|pnpm|bun|deno|tsc|jest|vitest|mocha|eslint|prettier|rimraf|del|cross-env|shx|copyfiles|mkdirp|concurrently|npm-run-all|run-s|run-p|husky|tsx|ts-node|webpack|rollup|vite|esbuild|next|nest|ng|vue-cli-service|electron|nodemon|serve|http-server)\b/;
+
 const rules = [
+  {
+    // The single most common Windows portability bug in the ecosystem.
+    // `cross-env` exists solely because of it and does ~18M downloads a week.
+    // Verified on Windows 11 / npm 11:
+    //   > NODE_ENV=production node -e "..."
+    //   'NODE_ENV' is not recognized as an internal or external command
+    id: "npm-script-inline-env",
+    severity: "bug",
+    title: "Setting an environment variable inline in an npm script",
+    why: "npm runs scripts through cmd.exe on Windows, and cmd has no `VAR=value command` syntax. It reads the whole thing as a command name and reports \"'NODE_ENV' is not recognized as an internal or external command\". The script fails before your program starts.",
+    fix: "Use `cross-env`: \"cross-env NODE_ENV=production node app.js\". It is the package the ecosystem already standardised on for exactly this.",
+    scope: "script",
+    test(cmd) {
+      // Each segment of a chained script is its own command.
+      return cmd.split(/&&|\|\||;/).some((part) =>
+        /^\s*[A-Za-z_][A-Za-z0-9_]*=[^\s=]/.test(part) &&
+        // `cross-env FOO=bar` and `npx cross-env FOO=bar` are the fix, not the bug.
+        !/cross-env|env\s/.test(part));
+    },
+  },
+
+  {
+    id: "npm-script-posix-command",
+    severity: "bug",
+    title: "An npm script calls a command Windows does not have",
+    why: "npm scripts run through cmd.exe on Windows, which has none of the Unix tools. Verified: `rm -rf build` reports \"'rm' is not recognized as an internal or external command\". Note it may work on YOUR machine if something has put Git's usr/bin on PATH. In a published package this usually bites a Windows CONTRIBUTOR rather than a user - `npm run clean` fails for them and works for you - which is why it survives so long.",
+    fix: "Use a cross-platform package instead: `rimraf` or `del-cli` for rm, `shx` for a general set (`shx cp`, `shx mkdir -p`), `copyfiles` for cp, `mkdirp` for mkdir -p.",
+    scope: "script",
+    test(cmd) {
+      return cmd.split(/&&|\|\||;|\|/).some((part) => {
+        const trimmed = part.trim().replace(/^\(\s*/, "");
+        if (SCRIPT_SAFE.test(trimmed)) return false;
+        const first = trimmed.match(/^([a-zA-Z][\w.-]*)\b/);
+        if (!first) return false;
+        // `mkdir` alone is fine on Windows; `mkdir -p` is not.
+        if (first[1] === "mkdir") return /\s-p\b/.test(trimmed);
+        return SCRIPT_POSIX_ONLY.includes(first[1]);
+      });
+    },
+  },
+
+  {
+    id: "npm-script-shell-var",
+    severity: "bug",
+    title: "An npm script uses `$VAR` shell expansion",
+    why: "cmd.exe expands `%VAR%`, not `$VAR`. On Windows the text is passed through literally, so your command receives the string \"$HOME\" instead of a path.",
+    fix: "Read the variable inside your program via `process.env`, or use `cross-env-shell` which gives you a POSIX shell on both platforms.",
+    scope: "script",
+    test(cmd) {
+      // $npm_package_* and $npm_config_* are npm's own and it substitutes them
+      // itself on both platforms.
+      return /\$(?!npm_)[A-Za-z_{][\w{}]*/.test(cmd);
+    },
+  },
+
   {
     // Coinbase's awal CLI: spawn(electron.cmd) with no shell -> EINVAL, and
     // the wallet could never start itself on Windows.
@@ -468,7 +539,66 @@ function enclosingBlock(lines, lineNo) {
  * `file` is only used for reporting and for the `.d.ts` check — nothing is
  * read from disk.
  */
+/**
+ * Scan the `scripts` block of a package.json.
+ *
+ * This is where the most common Windows bug in the ecosystem actually lives —
+ * `cross-env` does about 18M downloads a week and exists for no other reason.
+ * Scanning only .js files missed it completely.
+ *
+ * Line numbers are found by searching the raw text for the script name, so the
+ * report points at the line you have to edit rather than at "package.json".
+ */
+function scanPackageJson(src, file = "package.json") {
+  let pkg;
+  try {
+    pkg = JSON.parse(src);
+  } catch {
+    return []; // not our job to report malformed JSON
+  }
+  const scripts = pkg && pkg.scripts;
+  if (!scripts || typeof scripts !== "object") return [];
+
+  const lines = src.split(/\r?\n/);
+  const scriptRules = rules.filter((r) => r.scope === "script");
+  const findings = [];
+  const seen = new Set();
+
+  for (const [name, cmd] of Object.entries(scripts)) {
+    if (typeof cmd !== "string") continue;
+    const needle = '"' + name + '"';
+    let lineNo = lines.findIndex((l) => l.includes(needle));
+    if (lineNo < 0) lineNo = 0;
+    if (/winbreak-ignore/.test(lines[lineNo] || "")) continue;
+
+    for (const rule of scriptRules) {
+      try {
+        if (!rule.test(cmd, { name, pkg, file })) continue;
+        const key = `${rule.id}:${name}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        findings.push({
+          rule: rule.id,
+          severity: rule.severity || "bug",
+          title: rule.title,
+          why: rule.why,
+          fix: rule.fix,
+          file,
+          line: lineNo + 1,
+          source: `"${name}": ${JSON.stringify(cmd).slice(0, 150)}`,
+        });
+      } catch { /* a rule must never take the run down */ }
+    }
+  }
+  findings.sort((a, b) => a.line - b.line);
+  return findings;
+}
+
 function scanSource(src, file = "input.js", opts = {}) {
+  // package.json is a different shape entirely: the bugs live in `scripts`,
+  // not in JavaScript syntax.
+  if (/(^|[\\/])package\.json$/i.test(file)) return scanPackageJson(src, file);
+
   // A .d.ts file is type declarations. None of it is executed, so none of it
   // can break on Windows. nx ships `NX_TMP_DIR_POSIX = "/tmp/.nx"` in one and
   // it was reported twice — once in the declaration, once in the real file.
@@ -591,6 +721,7 @@ function scanSource(src, file = "input.js", opts = {}) {
 
 module.exports = {
   scanSource,
+  scanPackageJson,
   extractCall,
   enclosingBlock,
   stripStrings,

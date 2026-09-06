@@ -1,0 +1,14 @@
+{
+  "name": "pkg-broken",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "NODE_ENV=production node build.js",
+    "clean": "rm -rf dist",
+    "greet": "node -e \"console.log(1)\" && echo $HOME",
+    "ok-chain": "npm run clean && npm run build",
+    "ok-rimraf": "rimraf dist && mkdir dist",
+    "ok-crossenv": "cross-env NODE_ENV=production node build.js",
+    "ok-npmvar": "echo $npm_package_version"
+  }
+}

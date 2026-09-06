@@ -19,10 +19,27 @@ const ok = (cond, msg) => {
   if (!cond) failed++;
 };
 
-console.log("\nbroken.js — every rule should fire");
+console.log("\nevery rule should fire on the fixture that contains its bug");
 const broken = scanFile(path.join(__dirname, "fixtures", "broken.js"));
-const fired = new Set(broken.map((f) => f.rule));
+const brokenPkg = scanFile(path.join(__dirname, "fixtures", "pkg-broken", "package.json"));
+const fired = new Set([...broken, ...brokenPkg].map((f) => f.rule));
 for (const r of rules) ok(fired.has(r.id), r.id);
+
+// The scripts block of a package.json is where the most common Windows bug in
+// the ecosystem lives — cross-env does ~18M downloads a week and exists for no
+// other reason. Scanning only .js files missed it entirely.
+console.log("\npkg-clean/package.json — correct scripts must not fire");
+const cleanPkg = scanFile(path.join(__dirname, "fixtures", "pkg-clean", "package.json"));
+ok(cleanPkg.length === 0,
+  `0 findings in correct scripts (got ${cleanPkg.length}: ` +
+  `${cleanPkg.map((f) => f.rule).join(", ")})`);
+
+console.log("\npkg-broken/package.json — right script, right line");
+const inlineEnv = brokenPkg.find((f) => f.rule === "npm-script-inline-env");
+ok(inlineEnv && /"build"/.test(inlineEnv.source), "names the offending script");
+ok(inlineEnv && inlineEnv.line === 6, `points at line 6 (got ${inlineEnv && inlineEnv.line})`);
+ok(!brokenPkg.some((f) => /"ok-/.test(f.source)),
+  "cross-env, rimraf and $npm_package_* are not reported");
 
 console.log("\nclean.js — nothing should fire");
 const clean = scanFile(path.join(__dirname, "fixtures", "clean.js"));
@@ -146,6 +163,9 @@ console.log("\nevery fixture is valid JavaScript");
 const { execFileSync } = require("child_process");
 for (const name of fs.readdirSync(path.join(__dirname, "fixtures"))) {
   const f = path.join(__dirname, "fixtures", name);
+  // The package.json fixtures live in their own directories, and `node --check`
+  // has nothing to say about JSON.
+  if (!/\.[cm]?js$/.test(name) || fs.statSync(f).isDirectory()) continue;
   let good = true;
   try { execFileSync(process.execPath, ["--check", f], { stdio: "pipe" }); }
   catch { good = false; }
