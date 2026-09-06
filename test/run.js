@@ -105,11 +105,16 @@ fs.rmSync(pkgDir, { recursive: true, force: true });
 // instead. Regenerate with `npm run build:web`.
 console.log("\nthe web bundle is not stale");
 const { buildSource, OUT } = require("../scripts/build-web");
+// Compare with line endings normalised. Git checks this file out as CRLF on
+// Windows and LF elsewhere, so a byte comparison fails on the Windows CI job
+// while nothing is actually wrong -- which is, with some irony, exactly the
+// class of bug this tool exists to find.
+const normalise = (t) => t.split("\r\n").join("\n");
 let bundleCurrent = false;
 try {
-  bundleCurrent = fs.readFileSync(OUT, "utf8") === buildSource();
+  bundleCurrent = normalise(fs.readFileSync(OUT, "utf8")) === normalise(buildSource());
 } catch { /* missing file counts as stale */ }
-ok(bundleCurrent, "site/winbreak.bundle.js matches lib/ (run: npm run build:web)");
+ok(bundleCurrent, "web/winbreak.bundle.js matches lib/ (run: npm run build:web)");
 
 // It also has to actually run outside Node's module system, which is the one
 // thing a require()-based test would never catch.
