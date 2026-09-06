@@ -1,0 +1,42 @@
+{
+  "name": "winbreak",
+  "version": "0.1.0",
+  "description": "Finds the code in a Node project that works on macOS and Linux but breaks on Windows. Zero dependencies.",
+  "keywords": [
+    "windows",
+    "cross-platform",
+    "spawn",
+    "EINVAL",
+    "ENOENT",
+    "portability",
+    "lint",
+    "ci"
+  ],
+  "license": "MIT",
+  "author": "Evan Bo (https://opusmill.com)",
+  "homepage": "https://opusmill.com",
+  "type": "commonjs",
+  "bin": {
+    "winbreak": "bin/cli.js"
+  },
+  "main": "lib/scan.js",
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test/run.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hackierz/winbreak.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Hackierz/winbreak/issues"
+  }
+}
