@@ -7,8 +7,12 @@ Finds the code in a Node project that works on macOS and Linux and breaks on Win
 No dependencies. No config. One command.
 
 ```bash
-npx winbreak
+npx github:Hackierz/winbreak
 ```
+
+> Not on npm yet, so run it straight from this repo — that command works today
+> and needs nothing installed. Once it is published, `npx winbreak` will do the
+> same thing.
 
 ## Why this exists
 
@@ -37,7 +41,7 @@ So: a checker that looks for exactly those mistakes.
 Run against Coinbase's shipped `awal` CLI, v2.12.1, straight from npm:
 
 ```
-$ npx winbreak node_modules/awal/dist
+$ npx github:Hackierz/winbreak node_modules/awal/dist
 
 dist/ipcClient.js
      25  Hardcoded POSIX directory                    hardcoded-posix-path
@@ -67,7 +71,7 @@ npm pack nodemon pm2 mocha eslint prettier typescript rimraf npm-check-updates \
   concurrently husky lint-staged jest webpack rollup vite esbuild ts-node nx \
   lerna serve http-server json-server nodegit degit plop
 # extract each, then:
-npx winbreak <pkg>/package --include-build
+npx github:Hackierz/winbreak <pkg>/package --include-build
 ```
 
     21 of 25  no bugs
@@ -128,13 +132,15 @@ the pipeline.
 ## Usage
 
 ```bash
-npx winbreak                 # scan the current directory
-npx winbreak src             # scan a directory
-npx winbreak lib/thing.js    # scan one file
-npx winbreak --json          # machine-readable
-npx winbreak --rules         # what it looks for, and why
-npx winbreak --include-build # also scan dist/ build/ out/
+winbreak                 # scan the current directory
+winbreak src             # scan a directory
+winbreak lib/thing.js    # scan one file
+winbreak --json          # machine-readable
+winbreak --rules         # what it looks for, and why
+winbreak --include-build # also scan dist/ build/ out/
 ```
+
+Read `winbreak` above as `npx github:Hackierz/winbreak` until it is on npm.
 
 `dist/`, `build/` and `out/` are skipped by default, because in a source repo
 they are generated and you would get every finding twice. It always tells you
@@ -144,7 +150,7 @@ product, so use `--include-build` there.
 Exit code is `1` when a **bug** is found, so it drops straight into CI:
 
 ```yaml
-- run: npx winbreak
+- run: npx github:Hackierz/winbreak
 ```
 
 Use `--no-exit-code` if you want a report without failing the build.
@@ -169,7 +175,7 @@ const q = "/tmp/other";
 | `posix-path-concat` | building a path with `+ "/"` instead of `path.join` *(smell)* |
 | `case-sensitive-rm` | `rm -rf` used to delete a directory |
 
-`npx winbreak --rules` prints the reasoning and the fix for each.
+`winbreak --rules` prints the reasoning and the fix for each.
 
 ## What it misses
 
