@@ -191,6 +191,7 @@ winbreak --rules         # what it looks for, and why
 winbreak --include-build # also scan dist/ build/ out/
 winbreak --fix           # repair the npm scripts that have one obvious fix
 winbreak --fix --dry-run # ...show the changes and write nothing
+winbreak --github        # annotate the PR diff (GitHub Actions)
 ```
 
 ### `--fix`
@@ -232,6 +233,52 @@ Read `winbreak` above as `npx github:Hackierz/winbreak` until it is on npm.
 they are generated and you would get every finding twice. It always tells you
 how many files that hid. In a package downloaded from npm they are the whole
 product, so use `--include-build` there.
+
+## In CI, on the pull request diff
+
+```yaml
+- uses: Hackierz/winbreak@main
+```
+
+That is the whole thing. No install step and no `setup-node` -- winbreak has no
+dependencies and every GitHub runner ships Node. Findings appear **as
+annotations on the changed lines**, with the reason and the fix, plus a job
+summary.
+
+The point of annotating rather than printing: a log line saying "3 bugs" is
+something a reviewer has to go looking for, and code review is the last moment
+a Windows bug is cheap to fix.
+
+On an existing codebase that has never been checked, start without blocking:
+
+```yaml
+- uses: Hackierz/winbreak@main
+  with:
+    fail-on-findings: "false"   # annotate, do not block the merge
+```
+
+| Input | Default | |
+|---|---|---|
+| `path` | `.` | what to scan |
+| `fail-on-findings` | `true` | fail the job on a bug |
+| `strict` | `false` | also fail on smells |
+| `include-build` | `false` | also scan `dist/`, `build/`, `out/` |
+| `include-tests` | `false` | also scan test files |
+
+Outputs `findings`, `bugs`, `smells`, `files` and `fixable`, so a workflow can
+branch on the result without re-reading the log:
+
+```yaml
+- uses: Hackierz/winbreak@main
+  id: wb
+  with: { fail-on-findings: "false" }
+- run: echo "${{ steps.wb.outputs.fixable }} of these are one command away"
+```
+
+The action runs against this repository on every push, on Ubuntu **and
+Windows**, because the composite step is bash and bash on a Windows runner is
+Git Bash -- which is not the same shell, and is exactly the class of difference
+this tool exists to find.
 
 Exit code is `1` when a **bug** is found, so it drops straight into CI:
 

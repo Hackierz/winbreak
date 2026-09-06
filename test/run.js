@@ -272,5 +272,101 @@ try {
 ok(stillJson, "the file it wrote is still valid JSON");
 fs.rmSync(fixDir, { recursive: true, force: true });
 
+
+// GitHub annotations are the reason anyone leaves this in their CI: a log line
+// saying "3 bugs" has to be gone looking for, an annotation on the changed
+// line cannot be missed. Every failure mode here is silent -- a bad path or an
+// unescaped character produces an annotation attached to nothing, which looks
+// exactly like finding less.
+console.log("\ngithub: annotations land on the right line of the right file");
+const gh = require("../lib/github");
+const ghRoot = path.join(__dirname, "..");
+const ghFindings = scanFile(path.join(__dirname, "fixtures", "broken.js"));
+const ghLines = gh.annotations(ghFindings, ghRoot);
+
+ok(ghLines.length === ghFindings.length, "one annotation per finding");
+ok(ghLines.every((l) => /^::(error|warning) /.test(l)),
+  "every line is a workflow command");
+ok(ghLines.every((l) => !/\r|\n/.test(l)),
+  "no raw newline (it would truncate the annotation silently)");
+
+// A path GitHub cannot match to the diff shows in the log and never on the
+// file. Backslashes do exactly that, and this suite runs on Windows.
+ok(ghLines.every((l) => /file=test\/fixtures\/broken\.js,/.test(l)),
+  "the path is repo-relative with forward slashes");
+// Only the file= property: the message body legitimately contains a backslash
+// (the /tmp rule explains that "/tmp/x" becomes C:\tmp\x on Windows).
+ok(ghLines.every((l) => !/file=[^,]*\\/.test(l)),
+  "no backslash survives into the file= property");
+
+console.log("\ngithub: workflow-command escaping");
+ok(gh.escapeData("a\nb") === "a%0Ab", "newline in a message becomes %0A");
+ok(gh.escapeData("100%") === "100%25", "percent is escaped first, not twice");
+ok(gh.escapeProp("a:b,c") === "a%3Ab%2Cc",
+  "colon and comma are escaped in a property");
+ok(gh.escapeData("a:b,c") === "a:b,c",
+  "...but not in a message, where they are legal");
+
+console.log("\ngithub: severity maps to the right annotation level");
+const ghMixed = [
+  { file: path.join(ghRoot, "x.js"), line: 1, rule: "r", title: "t", why: "w", fix: "f", severity: "bug" },
+  { file: path.join(ghRoot, "x.js"), line: 2, rule: "r", title: "t", why: "w", fix: "f", severity: "smell" },
+];
+const ghMixedOut = gh.annotations(ghMixed, ghRoot);
+ok(ghMixedOut[0].startsWith("::error "), "a bug is an error");
+ok(ghMixedOut[1].startsWith("::warning "), "a smell is only a warning");
+
+console.log("\ngithub: the job summary");
+const sumClean = gh.summary({ files: 9, findings: [], skippedBuild: null }, ghRoot, {});
+ok(/No Windows-portability problems found in 9 files/.test(sumClean),
+  "a clean run says so plainly");
+ok(!sumClean.includes("|"), "and draws no empty table");
+const sumDirty = gh.summary(
+  { files: 3, findings: ghMixed, skippedBuild: { files: 2, dirs: ["dist"] } },
+  ghRoot, { fixable: 1 });
+ok(/\*\*1 bug\*\* and 1 smell/.test(sumDirty), "it counts bugs and smells apart");
+ok(sumDirty.includes("`x.js`"), "it names the file");
+ok(/Skipped 2 files in `dist\/`/.test(sumDirty),
+  "it still reports skipped build output");
+ok(sumDirty.includes("npx winbreak --fix"), "it says how many can be auto-fixed");
+
+// A pipe inside a title would end the markdown cell and shift every column.
+const piped = gh.summary({ files: 1, skippedBuild: null, findings: [
+  { file: path.join(ghRoot, "y.js"), line: 1, rule: "r", title: "a | b", why: "w", fix: "f", severity: "bug" },
+] }, ghRoot, {});
+ok(piped.includes("a \\| b"), "a pipe in a title is escaped, not left to break the table");
+
+console.log("\ngithub: --github exits like the rest of the tool");
+const cliPath = path.join(__dirname, "..", "bin", "cli.js");
+const runGh = (args) => {
+  try {
+    execFileSync(process.execPath, [cliPath, ...args], { stdio: "pipe" });
+    return 0;
+  } catch (e) { return e.status; }
+};
+ok(runGh([path.join(__dirname, "fixtures", "broken.js"), "--github"]) === 1,
+  "exit 1 when it finds a bug");
+ok(runGh([path.join(__dirname, "..", "lib"), "--github"]) === 0,
+  "exit 0 on a clean tree");
+ok(runGh([path.join(__dirname, "fixtures", "broken.js"), "--github", "--no-exit-code"]) === 0,
+  "--no-exit-code still wins");
+
+// The action is a plain file in the repo; a typo in it fails at use time, in
+// somebody else's workflow, with a message about YAML.
+console.log("\nthe action manifest is present and consistent");
+const actionYml = fs.readFileSync(path.join(ghRoot, "action.yml"), "utf8");
+ok(/using:\s*composite/.test(actionYml), "action.yml declares a composite action");
+ok(actionYml.includes("bin/cli.js"), "it runs the CLI");
+ok(actionYml.includes("--github"), "it asks for annotations");
+for (const out of ["findings", "bugs", "smells", "files", "fixable"]) {
+  ok(new RegExp("steps\\.winbreak\\.outputs\\." + out).test(actionYml),
+    `it wires up the "${out}" output`);
+}
+// Under `shell: bash` GitHub adds -e, so `[ x = y ] && arg` aborts the step
+// whenever the condition is false -- which is the default for every one of
+// these flags.
+ok(!/^\s*\[.*\]\s*&&/m.test(actionYml),
+  "no bare `[ ... ] && ...` line (it would abort the step under -e)");
+
 console.log(`\n${failed === 0 ? "all green" : failed + " failing"}\n`);
 process.exit(failed === 0 ? 0 : 1);

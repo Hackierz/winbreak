@@ -46,3 +46,55 @@ jobs:
 
       - name: Package builds
         run: npm pack --dry-run
+
+  # The action is a file in this repo, so nothing here type-checks it. If a key
+  # is misspelled or the composite step is malformed, the first person to find
+  # out is whoever put `uses: Hackierz/winbreak@main` in their own workflow and
+  # got a YAML error about someone else's repository. So we use it on ourselves.
+  action:
+    name: the action works, on the repo itself
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows included deliberately: the composite step is bash, and bash
+        # on a Windows runner is Git Bash, which is not the same shell.
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: winbreak checks winbreak
+        id: self
+        uses: ./
+
+      - name: The outputs are real numbers
+        shell: bash
+        run: |
+          echo "findings=${{ steps.self.outputs.findings }} files=${{ steps.self.outputs.files }}"
+          case "${{ steps.self.outputs.files }}" in
+            ''|*[!0-9]*) echo "FAIL: files output is not a number"; exit 1 ;;
+          esac
+          if [ "${{ steps.self.outputs.files }}" -lt 1 ]; then
+            echo "FAIL: the action reported scanning no files at all"
+            exit 1
+          fi
+
+      - name: It annotates instead of failing when told not to fail
+        id: nofail
+        uses: ./
+        with:
+          path: test/fixtures/broken.js
+          fail-on-findings: "false"
+          include-tests: "true"
+
+      - name: ...and it did find the deliberate bugs
+        shell: bash
+        run: |
+          # The previous step must not have failed the job, but it must still
+          # have found something. A green step that found nothing would mean
+          # fail-on-findings had silently disabled the whole check.
+          if [ "${{ steps.nofail.outputs.bugs }}" -lt 1 ]; then
+            echo "FAIL: expected bugs in the broken fixture, got ${{ steps.nofail.outputs.bugs }}"
+            exit 1
+          fi
+          echo "ok: ${{ steps.nofail.outputs.bugs }} bugs, job still green"

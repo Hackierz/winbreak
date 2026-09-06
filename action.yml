@@ -1,0 +1,87 @@
+name: winbreak
+description: >-
+  Find the Node code that works on macOS and breaks on Windows, and annotate it
+  on the pull request diff.
+author: OpusMill
+
+branding:
+  icon: alert-triangle
+  color: orange
+
+inputs:
+  path:
+    description: Directory or file to scan.
+    required: false
+    default: "."
+  fail-on-findings:
+    description: >-
+      Fail the job when a bug is found. Set to "false" to annotate the diff
+      without blocking the merge -- a reasonable first step on an existing
+      codebase that has not been checked before.
+    required: false
+    default: "true"
+  strict:
+    description: >-
+      Also fail on smells, not just bugs. A smell is fragile rather than
+      broken, so this is off by default; failing someone's pipeline over a
+      style judgement is how a checker gets removed from the pipeline.
+    required: false
+    default: "false"
+  include-build:
+    description: >-
+      Also scan dist/, build/ and out/. Off by default because in a source
+      repository they are generated and you would see every finding twice.
+      Turn it on when scanning something downloaded from npm, where those
+      directories are the shipped product.
+    required: false
+    default: "false"
+  include-tests:
+    description: Also scan test files, which are skipped by default.
+    required: false
+    default: "false"
+
+outputs:
+  findings:
+    description: Total number of findings.
+    value: ${{ steps.winbreak.outputs.findings }}
+  bugs:
+    description: Findings that are bugs rather than smells.
+    value: ${{ steps.winbreak.outputs.bugs }}
+  smells:
+    description: Findings that are smells.
+    value: ${{ steps.winbreak.outputs.smells }}
+  files:
+    description: Number of files scanned.
+    value: ${{ steps.winbreak.outputs.files }}
+  fixable:
+    description: How many findings `winbreak --fix` would repair on its own.
+    value: ${{ steps.winbreak.outputs.fixable }}
+
+runs:
+  # No setup-node step on purpose. winbreak has zero dependencies and every
+  # GitHub-hosted runner ships Node, so adding one here would only risk
+  # overriding a version the caller chose deliberately.
+  using: composite
+  steps:
+    - name: winbreak
+      id: winbreak
+      shell: bash
+      # Inputs come in as environment variables rather than being interpolated
+      # into the script text: a path containing a quote would otherwise end the
+      # string and run whatever followed it.
+      env:
+        WB_PATH: ${{ inputs.path }}
+        WB_FAIL: ${{ inputs.fail-on-findings }}
+        WB_STRICT: ${{ inputs.strict }}
+        WB_BUILD: ${{ inputs.include-build }}
+        WB_TESTS: ${{ inputs.include-tests }}
+        WB_DIR: ${{ github.action_path }}
+      run: |
+        # `shell: bash` runs with -e, so `[ x = y ] && arg` would abort the
+        # step whenever the condition is false. if/fi cannot do that.
+        args=("$WB_PATH" --github)
+        if [ "$WB_FAIL" != "true" ]; then args+=(--no-exit-code); fi
+        if [ "$WB_STRICT" = "true" ]; then args+=(--strict); fi
+        if [ "$WB_BUILD" = "true" ]; then args+=(--include-build); fi
+        if [ "$WB_TESTS" = "true" ]; then args+=(--include-tests); fi
+        node "$WB_DIR/bin/cli.js" "${args[@]}"

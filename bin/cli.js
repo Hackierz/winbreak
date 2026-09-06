@@ -16,6 +16,7 @@ winbreak — find the code that works on your Mac and breaks on Windows
 Options
   --fix                      repair the npm scripts that have one obvious fix
   --dry-run                  with --fix: show the changes, write nothing
+  --github                   annotate the pull request diff (GitHub Actions)
   --json                     machine-readable output
   --quiet                    only the summary line
   --rules                    list the rules and exit
@@ -197,6 +198,66 @@ ${yellow(`${remaining} npm script finding${remaining === 1 ? "" : "s"} still nee
     console.log(dim("  not run for you \u2014 installing into someone's project is their call"));
   }
   process.exit(process.exitCode || 0);
+}
+
+if (args.includes("--github")) {
+  const fs = require("fs");
+  const gh = require("../lib/github");
+  const root = process.env.GITHUB_WORKSPACE || process.cwd();
+
+  for (const line of gh.annotations(result.findings, root)) console.log(line);
+
+  // How many the user could fix without reading anything, which is the most
+  // actionable number in the summary.
+  let fixable = 0;
+  try {
+    const { fixScript } = require("../lib/fix");
+    for (const f of result.findings) {
+      if (!/^npm-script-/.test(f.rule)) continue;
+      const m = /^"[^"]*"\s*:\s*("(?:[^"\\]|\\.)*")\s*$/.exec(f.source || "");
+      if (!m) continue;
+      let cmd = null;
+      try { cmd = JSON.parse(m[1]); } catch (e) { cmd = null; }
+      if (cmd !== null && fixScript(cmd).changed) fixable++;
+    }
+  } catch (e) { fixable = 0; }
+
+  const md = gh.summary(result, root, { fixable });
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + "\n");
+    } catch (e) {
+      // A summary that cannot be written is not worth failing a build over,
+      // but staying silent about it would hide a broken action.
+      console.log(`::warning::winbreak could not write the job summary - ${e.message}`);
+    }
+  } else {
+    // Run locally, so there is nowhere to put it but the terminal.
+    console.log("\n" + md);
+  }
+
+  const ghBugs = result.findings.filter((f) => f.severity !== "smell").length;
+
+  // So a workflow can branch on the result without re-parsing the log.
+  if (process.env.GITHUB_OUTPUT) {
+    try {
+      fs.appendFileSync(process.env.GITHUB_OUTPUT,
+        `findings=${result.findings.length}
+` +
+        `bugs=${ghBugs}
+` +
+        `smells=${result.findings.length - ghBugs}
+` +
+        `files=${result.files}
+` +
+        `fixable=${fixable}
+`);
+    } catch (e) {
+      console.log(`::warning::winbreak could not write step outputs - ${e.message}`);
+    }
+  }
+
+  process.exit(noExit || (strict ? result.findings.length : ghBugs) === 0 ? 0 : 1);
 }
 
 if (json) {
