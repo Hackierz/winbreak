@@ -23,6 +23,7 @@
   "files": [
     "bin",
     "lib",
+    "web",
     "README.md",
     "LICENSE"
   ],
@@ -30,7 +31,9 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/run.js"
+    "test": "node test/run.js",
+    "build:web": "node scripts/build-web.js",
+    "prepublishOnly": "node scripts/build-web.js && node test/run.js"
   },
   "repository": {
     "type": "git",

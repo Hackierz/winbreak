@@ -99,6 +99,32 @@ ok(buildRun.findings.some((f) => f.rule === "case-sensitive-rm"),
   "--include-build finds the bug inside dist/");
 fs.rmSync(pkgDir, { recursive: true, force: true });
 
+// The web checker at opusmill.com/check inlines lib/rules.js and lib/core.js
+// verbatim. If someone edits a rule and forgets to rebuild, the site starts
+// disagreeing with the CLI about a user's code, silently. Fail the build
+// instead. Regenerate with `npm run build:web`.
+console.log("\nthe web bundle is not stale");
+const { buildSource, OUT } = require("../scripts/build-web");
+let bundleCurrent = false;
+try {
+  bundleCurrent = fs.readFileSync(OUT, "utf8") === buildSource();
+} catch { /* missing file counts as stale */ }
+ok(bundleCurrent, "site/winbreak.bundle.js matches lib/ (run: npm run build:web)");
+
+// It also has to actually run outside Node's module system, which is the one
+// thing a require()-based test would never catch.
+console.log("\nthe web bundle runs standalone");
+const sandbox = {};
+new Function("window", fs.readFileSync(OUT, "utf8"))(sandbox);
+ok(!!sandbox.winbreak, "it defines window.winbreak");
+ok(sandbox.winbreak && sandbox.winbreak.rules.length === require("../lib/rules").rules.length,
+  "it exposes every rule");
+const webHits = sandbox.winbreak
+  ? sandbox.winbreak.scanSource('spawn("electron.cmd", [a], { stdio: "inherit" });', "d.js")
+  : [];
+ok(webHits.some((f) => f.rule === "spawn-cmd-no-shell"),
+  "it finds the same bug the CLI finds");
+
 // The fixtures are never executed, so a broken escape in one would go
 // unnoticed — in a tool that reads other people's JavaScript for a living.
 console.log("\nevery fixture is valid JavaScript");

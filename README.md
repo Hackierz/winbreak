@@ -14,6 +14,17 @@ npx github:Hackierz/winbreak
 > and needs nothing installed. Once it is published, `npx winbreak` will do the
 > same thing.
 
+## Or paste code into the browser
+
+**https://opusmill.com/check** — no install, no account, nothing uploaded.
+
+It runs `lib/rules.js` and `lib/core.js` inlined verbatim by
+`scripts/build-web.js`, so the page reports exactly what the CLI reports. The
+test suite fails if that bundle goes stale. Your code never leaves the browser;
+the page makes no request while you type, and it works with the network off.
+
+Use the browser for one snippet. Use the CLI for a repository, or for CI.
+
 ## Why this exists
 
 In September 2026 I tried to install Coinbase's own Agentic Wallet on a
