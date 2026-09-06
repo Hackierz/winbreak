@@ -112,6 +112,11 @@ matters:**
 - **7 were winbreak being wrong.** That is a **15% false-positive rate on
   findings**, and I would rather print it than have you discover it.
 
+`winbreak --fix` repairs **125 of those 214 findings (58%) automatically** --
+I measured it by running the fixer over every finding in the survey. The rest
+are `cp`, `mkdir -p`, `$npm_package_config_*`, docker invocations and shell
+programs, and it says so rather than guessing.
+
 **The npm scripts are the more interesting half.** 104 of 599 packages
 (17.4%) have a `package.json` script that cannot run on Windows -- roughly six
 times the JavaScript rate. `rm -rf dist`, `NODE_ENV=test node --test`,
@@ -184,7 +189,42 @@ winbreak lib/thing.js    # scan one file
 winbreak --json          # machine-readable
 winbreak --rules         # what it looks for, and why
 winbreak --include-build # also scan dist/ build/ out/
+winbreak --fix           # repair the npm scripts that have one obvious fix
+winbreak --fix --dry-run # ...show the changes and write nothing
 ```
+
+### `--fix`
+
+It rewrites **only** the `scripts` block of a `package.json`, and **only** the
+two problems the ecosystem has already agreed an answer to:
+
+```
+- "clean": "rm -rf dist"
++ "clean": "rimraf dist"
+
+- "build": "rm -rf dist && NODE_ENV=production rollup -c"
++ "build": "rimraf dist && cross-env NODE_ENV=production rollup -c"
+```
+
+Everything else it **refuses, by name**:
+
+```
+left alone, because these need a real script file:
+  package.json  "examples"  (a shell loop or conditional)
+    for FILE in example/*.js; do node $FILE; done
+```
+
+A `for` loop, `$(...)`, `${VAR/a/b}` or a pipe into `sed` is a shell program.
+There is no mechanical translation of one into something cmd.exe runs, and
+guessing would edit a build script in a way that fails later and elsewhere.
+Move those into a `.mjs` file and call it with `node`, which runs anywhere.
+
+Three things it will not do: reformat your file (only the changed *values* are
+rewritten, so the diff is the lines that changed), write anything that is not
+valid JSON (it reparses before saving and refuses if it broke something), or
+run `npm install` for you. It prints the install line and leaves it to you.
+
+Running it twice changes nothing the second time.
 
 Read `winbreak` above as `npx github:Hackierz/winbreak` until it is on npm.
 
