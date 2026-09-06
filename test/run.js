@@ -41,5 +41,18 @@ ok(!!spawnHit, "the spawn is found at all");
 ok(spawnHit && spawnHit.line === 15,
   `reported at line 15 (got ${spawnHit ? spawnHit.line : "none"})`);
 
+// Regression: naming a file explicitly must scan it, even under test/. The
+// directory filter that hides fixtures was also hiding files the user asked
+// for by name, so `winbreak test/thing.js` gave a clean bill of health on a
+// file full of bugs — and exited 0 while doing it.
+console.log("\nan explicit file argument beats the test-file filter");
+const { scan } = require("../lib/scan");
+const direct = scan(path.join(__dirname, "fixtures", "broken.js"));
+ok(direct.findings.length > 0,
+  `named fixture is scanned (${direct.findings.length} findings)`);
+const walked = scan(path.join(__dirname, "fixtures"));
+ok(walked.findings.length === 0,
+  `walking a test directory still skips it (${walked.findings.length} findings)`);
+
 console.log(`\n${failed === 0 ? "all green" : failed + " failing"}\n`);
 process.exit(failed === 0 ? 0 : 1);
