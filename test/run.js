@@ -494,5 +494,37 @@ const shxNeeds = fixScript("cp a b && mkdir -p c");
 ok(shxNeeds.needs.length === 1 && shxNeeds.needs[0] === "shx",
   "shx is reported once, not per command");
 
+
+// Not a test of winbreak -- a test of the platform, printed so CI records what
+// each OS actually does. The import-case-mismatch rule exists because these
+// three lines disagree across platforms, and it is better to have the runners
+// state that than to quote it from memory.
+console.log("\nwhat this platform does with a mis-cased require (for the record)");
+const probeDir = fs.mkdtempSync(path.join(os.tmpdir(), "winbreak-probe-"));
+fs.writeFileSync(path.join(probeDir, "Foo.js"), "module.exports = 'loaded';\n");
+
+const insensitiveExists = fs.existsSync(path.join(probeDir, "foo.js"));
+let requireResult;
+try {
+  requireResult = require(path.join(probeDir, "foo"));
+} catch (e) {
+  requireResult = e.code || "threw";
+}
+const realEntries = fs.readdirSync(probeDir);
+
+console.log(`        platform                : ${process.platform}`);
+console.log(`        readdirSync             : ${JSON.stringify(realEntries)}`);
+console.log(`        existsSync("foo.js")    : ${insensitiveExists}`);
+console.log(`        require("./foo")        : ${requireResult}`);
+
+// The two behaviours are the two halves of the bug, and exactly one must hold.
+const caseInsensitive = insensitiveExists && requireResult === "loaded";
+const caseSensitive = !insensitiveExists && requireResult === "MODULE_NOT_FOUND";
+ok(caseInsensitive || caseSensitive,
+  caseInsensitive
+    ? "case-insensitive filesystem: existsSync lies and require succeeds"
+    : "case-sensitive filesystem: existsSync is honest and require throws MODULE_NOT_FOUND");
+fs.rmSync(probeDir, { recursive: true, force: true });
+
 console.log(`\n${failed === 0 ? "all green" : failed + " failing"}\n`);
 process.exit(failed === 0 ? 0 : 1);
