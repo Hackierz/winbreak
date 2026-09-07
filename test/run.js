@@ -368,5 +368,87 @@ for (const out of ["findings", "bugs", "smells", "files", "fixable"]) {
 ok(!/^\s*\[.*\]\s*&&/m.test(actionYml),
   "no bare `[ ... ] && ...` line (it would abort the step under -e)");
 
+
+// The mirror rule: works on Windows and macOS, breaks on Linux. It needs a
+// real directory, so the fixture is built on disk rather than in test/fixtures
+// -- and it has to be built rather than committed, because git on a
+// case-insensitive filesystem is unreliable about files that differ only by
+// case, which is the very hazard being tested.
+console.log("\nimport-case-mismatch: case that differs from the file on disk");
+const caseDir = fs.mkdtempSync(path.join(os.tmpdir(), "winbreak-case-"));
+fs.mkdirSync(path.join(caseDir, "Utils"));
+fs.writeFileSync(path.join(caseDir, "Foo.js"), "module.exports = 1;\n");
+fs.writeFileSync(path.join(caseDir, "exact.js"), "module.exports = 3;\n");
+fs.writeFileSync(path.join(caseDir, "Utils", "Helper.js"), "module.exports = 2;\n");
+const caseMain = path.join(caseDir, "main.js");
+fs.writeFileSync(caseMain, [
+  'const a = require("./foo");',            // 1  wrong: Foo.js
+  'const b = require("./Foo");',            // 2  right
+  'const c = require("./utils/Helper");',   // 3  wrong directory: Utils
+  'const d = require("./Utils/helper");',   // 4  wrong file: Helper.js
+  'const e = require("./exact");',          // 5  right
+  'const f = require("./nope-not-here");',  // 6  missing, not a case bug
+  'import g from "./foo.js";',              // 7  wrong, with extension
+  'export { h } from "./Utils/Helper";',    // 8  right
+  'const i = require("fs");',               // 9  builtin
+  'const j = require("lodash/Map");',       // 10 bare specifier, not ours
+].join("\n") + "\n");
+
+const caseHits = scanFile(caseMain).filter((f) => f.rule === "import-case-mismatch");
+const caseLines = caseHits.map((f) => f.line).sort((x, y) => x - y);
+ok(caseLines.join(",") === "1,3,4,7",
+  `flags exactly lines 1,3,4,7 (got ${caseLines.join(",") || "none"})`);
+ok(caseHits.some((f) => /"Foo\.js"/.test(f.fix)),
+  "the fix names the real filename");
+ok(caseHits.some((f) => /directory on disk is "Utils"/.test(f.why)),
+  "a wrong directory is reported as a directory");
+
+// Regression: the pattern starts with (?:^|[\s;}]) so `import` is a whole
+// word, and that leading character is usually the PREVIOUS line's newline.
+// Anchoring on m.index reported every `import ... from` finding one line early.
+const importHit = caseHits.find((f) => /^import /.test(f.source));
+ok(importHit && importHit.line === 7,
+  `the import-from finding is on its own line, 7 (got ${importHit && importHit.line})`);
+
+// A missing module is somebody else's error. Reporting it as a case problem
+// would send the reader looking for a spelling difference that is not there.
+ok(!caseHits.some((f) => /nope-not-here/.test(f.source)),
+  "an import that matches nothing is not reported");
+ok(!caseHits.some((f) => /lodash/.test(f.source)),
+  "a bare package specifier is not reported");
+
+console.log("\nimport-case-mismatch: CRLF must not shift the line numbers");
+const caseCrlf = path.join(caseDir, "crlf.js");
+fs.writeFileSync(caseCrlf,
+  fs.readFileSync(caseMain, "utf8").split("\n").join("\r\n"));
+const crlfLines = scanFile(caseCrlf)
+  .filter((f) => f.rule === "import-case-mismatch")
+  .map((f) => f.line).sort((x, y) => x - y);
+ok(crlfLines.join(",") === "1,3,4,7",
+  `same lines under CRLF (got ${crlfLines.join(",") || "none"})`);
+
+console.log("\nimport-case-mismatch: correct code stays silent");
+const caseClean = path.join(caseDir, "clean.js");
+fs.writeFileSync(caseClean, [
+  'const a = require("./Foo");',
+  'const b = require("./Utils/Helper");',
+  'const c = require("./exact.js");',
+  'import d from "./Foo.js";',
+  'export { e } from "./Utils/Helper.js";',
+].join("\n") + "\n");
+const cleanCase = scanFile(caseClean).filter((f) => f.rule === "import-case-mismatch");
+ok(cleanCase.length === 0,
+  `0 findings on correctly-cased imports (got ${cleanCase.length})`);
+fs.rmSync(caseDir, { recursive: true, force: true });
+
+// It reads directories, so a path it cannot read must not take the scan down.
+console.log("\nimport-case-mismatch: an unreadable directory is survivable");
+const { scanImports } = require("../lib/casecheck");
+let survived = true;
+try {
+  scanImports('require("./x");', path.join("Z:", "no", "such", "place", "a.js"));
+} catch (e) { survived = false; }
+ok(survived, "scanning against a non-existent directory does not throw");
+
 console.log(`\n${failed === 0 ? "all green" : failed + " failing"}\n`);
 process.exit(failed === 0 ? 0 : 1);

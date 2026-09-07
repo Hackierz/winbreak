@@ -168,6 +168,49 @@ POSIX-only call lives in a helper, winbreak reports the helper. Three of the
 seven false positives above are exactly this shape. Reading one file at a time
 is the design, and this is the cost of it.
 
+## The one that goes the other way
+
+Every rule above finds code that works on your Mac and breaks on Windows.
+`import-case-mismatch` is the mirror: code that works on Windows **and** macOS
+and breaks on **Linux**.
+
+```js
+// the file on disk is Foo.js
+const foo = require("./foo");   // fine on Windows and macOS. Not on Linux.
+```
+
+Windows and macOS are case-insensitive by default; Linux is not, and Linux is
+what almost every CI runner and container is. So this passes locally for
+everyone on the team and fails the moment it reaches CI, with
+`Cannot find module './foo'`.
+
+**The reason it survives is that the obvious check does not catch it.**
+Verified on Windows 11:
+
+```
+the file on disk is Foo.js
+fs.existsSync(".../Foo.js")  -> true
+fs.existsSync(".../foo.js")  -> true      <- the lie
+fs.readdirSync(dir)          -> ["Foo.js"]
+```
+
+So this rule reads the directory and compares real entry names. It never asks
+whether a path exists, because on the machines where this bug gets written the
+answer is always yes. It reports a mismatch only when a case-insensitive match
+exists and an exact one does not -- an import that matches nothing at all is a
+missing file, which is a different error and somebody else's to report.
+
+**What I can and cannot tell you about how often it fires.** I ran it over
+**120 of the most-downloaded packages, 8,978 files: zero findings.** That is a
+precision result, not a uselessness result -- a published package with this bug
+would be broken on Linux for most of its users, so it never survives
+publication. The population where this bug lives is repositories *before* they
+ship, which is exactly what you point this tool at and exactly what I have no
+corpus of. So: **zero false positives in 8,978 files, and an unmeasured
+true-positive rate.** I would rather say that than quote a number I made up.
+
+Because it needs the filesystem, this rule does not run in the browser checker.
+
 ## Bugs and smells
 
 Findings come in two weights:

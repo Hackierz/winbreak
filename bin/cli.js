@@ -42,6 +42,18 @@ if (args.includes("--rules")) {
   for (const r of rules) {
     console.log(`\n${r.id}\n  ${r.title}\n  why: ${r.why}\n  fix: ${r.fix}`);
   }
+  // Not in lib/rules.js because it is not a text rule -- it has to read
+  // the directory to see the real spelling of a filename. Listing only
+  // the text rules would understate what the tool actually checks.
+  console.log(`\nimport-case-mismatch
+  An import's case does not match the file on disk
+  why: The mirror of everything above. Windows and macOS are
+       case-insensitive, Linux is not, so require("./foo") loads Foo.js
+       on your machine and fails in CI. fs.existsSync cannot catch it: on
+       a case-insensitive filesystem it returns true for either spelling,
+       so the directory itself has to be read.
+  fix: Match the import to the real filename. Needs the filesystem, so
+       this one does not run in the browser checker.`);
   process.exit(0);
 }
 
