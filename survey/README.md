@@ -62,6 +62,19 @@ they are worth knowing about if you adapt it:
 The rule both taught: **a survey that loses rows without saying so is worse
 than one that stops.**
 
+## Is a tarball a fair proxy for the repository?
+
+The harness reads **published tarballs**; the person this bug hurts has cloned
+the **repository**. Tools like `clean-publish` can strip the `scripts` block on
+publish, which would mean measuring the wrong artefact.
+
+Checked twenty packages, tarball scripts vs the repository's `package.json` on
+its default branch: **0 stripped**, 15 of 19 identical, 4 differing by a few
+keys in both directions (release drift — the tarball is a released version and
+`main` has moved on), 1 not comparable (monorepo, no root `package.json`).
+
+Nobody stripped anything, so the published scripts block is a fair proxy.
+
 ## Known limitation: no scoped packages
 
 **`ranked.tsv` contains zero `@scope/name` packages** — none, out of all 1,412
