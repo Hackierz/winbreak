@@ -1,3 +1,5 @@
 node_modules/
 *.tgz
 *.log
+survey/results.jsonl
+survey/work-*/
