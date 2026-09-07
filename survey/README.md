@@ -62,6 +62,22 @@ they are worth knowing about if you adapt it:
 The rule both taught: **a survey that loses rows without saying so is worse
 than one that stops.**
 
+## Known limitation: no scoped packages
+
+**`ranked.tsv` contains zero `@scope/name` packages** — none, out of all 1,412
+names the keyword search returned. That is a property of how the list was
+gathered, not a deliberate filter, and scoped packages are a large part of
+modern npm.
+
+Measured rather than left hanging: 34 scoped CLI/build-tooling packages scanned
+the same way gave **14.7% with a hostile npm script (5 of 34, 95% CI
+6.4–30.1%)** against 17.4% (14.5–20.6%) here. The intervals overlap heavily, so
+there is no evidence the omission moved the headline — but 34 is a small,
+hand-picked sample, so treat it as reassurance rather than proof.
+
+If you want to extend the survey properly, this is the obvious place to start:
+build a scoped `ranked.tsv` and re-run.
+
 ## The hand classification is not here
 
 `results.jsonl` is raw output. Turning 48 JavaScript findings into "3 real,
