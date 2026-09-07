@@ -450,5 +450,49 @@ try {
 } catch (e) { survived = false; }
 ok(survived, "scanning against a non-existent directory does not throw");
 
+
+console.log("\n--fix: cp / mv / mkdir -p via shx");
+ok(fx("cp -R ./src/assets ./lib/") === "shx cp -R ./src/assets ./lib/",
+  "cp -R -> shx cp -R");
+ok(fx("mkdir -p coverage && bun test") === "shx mkdir -p coverage && bun test",
+  "mkdir -p -> shx mkdir -p, leaving the rest alone");
+ok(fx("mv a b") === "shx mv a b", "mv -> shx mv");
+// shx globs internally, so `cp es6/*.ts js` does not need a shell to expand
+// the pattern first. Verified from cmd.exe: it copied the .ts files and not
+// the .js one.
+ok(fx("cp es6/*.ts js") === "shx cp es6/*.ts js",
+  "a glob is left for shx to expand, not the shell");
+
+console.log("\n--fix: flags shx does not implement are refused, by name");
+const parents = fixScript("cp --parents a b");
+ok(parents.changed === false, "cp --parents is not rewritten");
+ok(parents.skipped.some((k) => /--parents/.test(k.why)),
+  "and the refusal names the flag");
+
+console.log("\n--fix: commands deliberately left out of the shx table");
+// shx has ln, but a symlink on Windows needs elevation or developer mode, so
+// the "fix" would fail on exactly the machines that need it.
+ok(fixScript("ln -s a b").changed === false, "ln -s is not rewritten");
+ok(fixScript("chmod +x bin/cli.js").changed === false, "chmod is not rewritten");
+
+console.log("\n--fix: shx does not collide with the other two transforms");
+ok(fx("rm -rf dist && cp a b") === "rimraf dist && shx cp a b",
+  "rimraf and shx in one script");
+ok(fx("mkdir -p a && NODE_ENV=x node b.js") ===
+   "shx mkdir -p a && cross-env NODE_ENV=x node b.js",
+  "shx and cross-env in one script");
+ok(fixScript("shx cp a b").changed === false,
+  "an already-fixed shx command is left alone");
+// `mkdirp` is a package, `mkdir` is the command. Matching the prefix would
+// rewrite a script that was already correct.
+ok(fixScript("mkdirp js").changed === false,
+  "mkdirp the package is not mistaken for mkdir the command");
+const shxOnce = fx("cp -R src dest");
+ok(fx(shxOnce) === shxOnce, "applying the shx fix twice changes nothing");
+
+const shxNeeds = fixScript("cp a b && mkdir -p c");
+ok(shxNeeds.needs.length === 1 && shxNeeds.needs[0] === "shx",
+  "shx is reported once, not per command");
+
 console.log(`\n${failed === 0 ? "all green" : failed + " failing"}\n`);
 process.exit(failed === 0 ? 0 : 1);

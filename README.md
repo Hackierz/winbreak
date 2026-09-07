@@ -112,10 +112,10 @@ matters:**
 - **7 were winbreak being wrong.** That is a **15% false-positive rate on
   findings**, and I would rather print it than have you discover it.
 
-`winbreak --fix` repairs **125 of those 214 findings (58%) automatically** --
-I measured it by running the fixer over every finding in the survey. The rest
-are `cp`, `mkdir -p`, `$npm_package_config_*`, docker invocations and shell
-programs, and it says so rather than guessing.
+`winbreak --fix` repairs **142 of those 214 findings (66%) automatically** --
+measured by running the fixer over every finding in the survey, not estimated.
+The rest are `$npm_package_config_*`, docker invocations, `|| true` and shell
+programs, and it names them rather than guessing.
 
 **The npm scripts are the more interesting half.** 104 of 599 packages
 (17.4%) have a `package.json` script that cannot run on Windows -- roughly six

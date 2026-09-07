@@ -753,6 +753,33 @@ module.exports = {
 const NEEDS = {
   "cross-env": "runs a command with an environment variable set, on any platform",
   rimraf: "deletes a directory recursively, on any platform",
+  shx: "cross-platform cp, mv, mkdir -p and friends, with its own globbing",
+};
+
+/**
+ * Commands shx provides, with the flags it actually understands.
+ *
+ * The flag lists are the point. `cp --parents` is a GNU extension shx does not
+ * have, and rewriting it to `shx cp --parents` would turn a script that fails
+ * loudly into one that fails differently and later. Anything with a flag not
+ * listed here is left alone.
+ *
+ * Verified on Windows 11 from cmd.exe, which is what npm uses:
+ *   shx cp src/*.ts dest/   -> copied one.ts and two.ts, not skip.js
+ *   shx cp -R src dest2     -> copied the directory
+ * shx globs internally, so it does not need the shell to expand `*.ts` first.
+ */
+const SHX_OK = {
+  cp: /^-[rRfnupL]+$/,
+  mv: /^-[fn]+$/,
+  mkdir: /^-p$/,
+  touch: /^-[acmd]+$/,
+  // Deliberately NOT here:
+  //   ln    - shx has it, but creating a symlink on Windows needs elevation or
+  //           developer mode, so the "fix" would fail on the machines that
+  //           need it. It stays in UNFIXABLE below, refused by name.
+  //   chmod - meaningless on Windows; rewriting it would imply it did
+  //           something.
 };
 
 /**
@@ -848,6 +875,25 @@ function fixScript(cmd) {
         t = `${rm[1]}rimraf ${rm[3]}`;
         needs.add("rimraf");
         changed = true;
+      }
+    }
+
+    // cp/mv/mkdir -p  ->  shx cp/mv/mkdir -p
+    // Only when every flag is one shx implements; see SHX_OK above.
+    const shx = t.match(/^(\s*)([a-z]+)((?:\s+-[^\s]+)*)\s+(.+)$/);
+    if (shx && Object.prototype.hasOwnProperty.call(SHX_OK, shx[2])) {
+      const flags = shx[3].trim().split(/\s+/).filter(Boolean);
+      const allKnown = flags.every((f) => SHX_OK[shx[2]].test(f));
+      if (allKnown) {
+        t = `${shx[1]}shx ${shx[2]}${shx[3]} ${shx[4]}`;
+        needs.add("shx");
+        changed = true;
+      } else {
+        skipped.push({
+          text: seg.text.trim(),
+          why: "a flag shx does not implement (" +
+            flags.filter((f) => !SHX_OK[shx[2]].test(f)).join(" ") + ")",
+        });
       }
     }
 
