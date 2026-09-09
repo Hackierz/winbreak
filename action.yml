@@ -1,4 +1,4 @@
-name: winbreak
+name: "winbreak: Windows portability check"
 description: >-
   Find the Node code that works on macOS and breaks on Windows, and annotate it
   on the pull request diff.
