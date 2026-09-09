@@ -27,9 +27,10 @@ Options
   -h, --help                 this
 
 --fix only ever touches the "scripts" block of a package.json, and only the
-two problems with a single agreed answer: inline environment variables become
-cross-env, and rm -rf becomes rimraf. Shell loops, $(...) and pipelines are
-reported and left alone -- they need a real script file, not a substitution.
+problems with a single agreed answer: inline environment variables become
+cross-env, rm -rf becomes rimraf, and cp / mv / mkdir -p / touch become their
+shx equivalents. Shell loops, $(...), pipelines, ln and chmod are reported
+and left alone -- they need a human, not a substitution.
 
 Ignore a line by putting  winbreak-ignore  in a comment on it,
 or  winbreak-ignore-next  on the line above.
