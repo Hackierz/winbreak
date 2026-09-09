@@ -116,6 +116,11 @@ function hasShell(call) {
 }
 
 /** True when a shell is used on Windows specifically — where quoting bites. */
+/** Expressions that produce a path with a space in it on a stock Windows
+ * install. Shared with core.js, which uses it to remember variables assigned
+ * from one of these so the rule can follow them one hop. */
+const PATH_SOURCE = /process\.execPath|__dirname|__filename|process\.env\.(ProgramFiles|APPDATA|LOCALAPPDATA|USERPROFILE)/;
+
 function shellOnWindows(call) {
   return /shell\s*:\s*true/.test(call) ||
     /shell\s*:\s*[^,}]*(?:win32|isWin|isWindows)/i.test(call);
@@ -339,9 +344,17 @@ const rules = [
     why: "With `shell: true` the command string is handed to cmd.exe, which splits on spaces. \"C:\\Program Files\\nodejs\\node.exe\" is parsed as the command \"C:\\Program\". The failure looks like the program is missing rather than mis-quoted, and it arrives as a non-zero exit rather than an `error` object, so an `if (err)` check does not see it.",
     fix: "Drop `shell: true` and spawn the executable directly. Then nothing needs quoting and the arguments are passed as written. Quoting only the path is not enough: with `shell: true` the arguments are concatenated unescaped as well, so an argument containing a space is silently split at the space and the call still exits 0. Node 24 deprecates passing args with `shell: true` for this reason (DEP0190).",
     scope: "call",
-    test(call) {
+    test(call, ctx) {
       if (!shellOnWindows(call)) return false;
-      return /process\.execPath|__dirname|__filename|process\.env\.(ProgramFiles|APPDATA|LOCALAPPDATA|USERPROFILE)/.test(call);
+      if (PATH_SOURCE.test(call)) return true;
+      // `const exe = path.join(process.env.ProgramFiles, ...)` on one line and
+      // `spawnSync(exe, args, { shell: true })` on the next: the call text
+      // never mentions the source. Same one hop spawn-cmd-no-shell follows.
+      if (ctx && ctx.pathVars && ctx.pathVars.size) {
+        const first = call.match(/\(\s*([A-Za-z_$][\w$]*)\s*[,)]/);
+        if (first && ctx.pathVars.has(first[1])) return true;
+      }
+      return false;
     },
   },
 
@@ -380,7 +393,7 @@ const rules = [
   },
 ];
 
-module.exports = { rules, POSIX_ONLY, POSIX_DIRS };
+module.exports = { rules, POSIX_ONLY, POSIX_DIRS, PATH_SOURCE };
 
   });
 
@@ -398,7 +411,7 @@ module.exports = { rules, POSIX_ONLY, POSIX_DIRS };
  * Nothing here may require("fs") or require("path").
  */
 
-const { rules } = require("./rules");
+const { rules, PATH_SOURCE } = require("./rules");
 
 /**
  * Pull out the text of a call expression starting at `from`.
@@ -630,9 +643,15 @@ function scanSource(src, file = "input.js", opts = {}) {
   // The spawn call itself never mentions ".cmd", so a call-only regex misses
   // it. We do not chase further than one hop; see README "What it misses".
   const cmdVars = new Set();
+  // Same hop for paths that contain a space on a stock Windows install:
+  //   const exe = path.join(process.env.ProgramFiles, "nodejs", "node.exe");
+  //   spawnSync(exe, args, { shell: true });               // <- 'C:\Program' is not recognized
+  const pathVars = new Set();
   for (const l of lines) {
     const m = l.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/);
-    if (m && /\.cmd|\.bat/.test(l)) cmdVars.add(m[1]);
+    if (!m) continue;
+    if (/\.cmd|\.bat/.test(l)) cmdVars.add(m[1]);
+    if (PATH_SOURCE.test(l)) pathVars.add(m[1]);
   }
 
   const findings = [];
@@ -681,7 +700,7 @@ function scanSource(src, file = "input.js", opts = {}) {
       const guardScope = enclosingBlock(lines, lineNo);
       for (const rule of callRules) {
         try {
-          if (rule.test(call, { nearby, guardScope, file, cmdVars })) push(rule, lineNo);
+          if (rule.test(call, { nearby, guardScope, file, cmdVars, pathVars })) push(rule, lineNo);
         } catch { /* a rule must never take the run down */ }
       }
     }

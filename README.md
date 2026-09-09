@@ -365,11 +365,13 @@ Specifically:
 - **It follows variables one hop.** `const npmCmd = ... ".cmd"` then
   `spawn(npmCmd, …)` is caught. A value that travels through a returned object
   and a destructure before reaching the spawn is not. Coinbase's `serverManager`
-  has exactly that shape and winbreak does not flag it.
+  has exactly that shape and winbreak does not flag it. The same single hop is
+  followed for a path built from `process.env.ProgramFiles`, `__dirname` or
+  `process.execPath` and then handed to a `shell: true` spawn.
 - **Test files are skipped by default**, because fixtures are full of
   deliberate POSIX paths. Pass `--include-tests` to scan them.
 - **Files over 2 MB are skipped**, on the assumption they are bundles.
-- **A clean run is not a promise.** It means these seven patterns were not
+- **A clean run is not a promise.** It means these eleven patterns were not
   found. It does not mean your code runs on Windows.
 
 The right way to know your code works on Windows is to run it on Windows.

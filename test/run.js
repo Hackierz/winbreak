@@ -58,6 +58,17 @@ ok(!!spawnHit, "the spawn is found at all");
 ok(spawnHit && spawnHit.line === 15,
   `reported at line 15 (got ${spawnHit ? spawnHit.line : "none"})`);
 
+// The path with a space is assigned on one line and only named on the next.
+// The /fix/ page for 'C:\Program' used exactly this shape as its example, and
+// a reviewer noticed the checker would not have flagged the page's own example.
+console.log("\nunquoted-path.js — shell:true follows a path variable one hop");
+const uq = scanFile(path.join(__dirname, "fixtures", "unquoted-path.js"))
+  .filter((f) => f.rule === "shell-true-unquoted-path")
+  .map((f) => f.line)
+  .sort((a, b) => a - b);
+ok(JSON.stringify(uq) === "[6,14]",
+  `flags lines 6 and 14 only (got [${uq}])`);
+
 // Regression: naming a file explicitly must scan it, even under test/. The
 // directory filter that hides fixtures was also hiding files the user asked
 // for by name, so `winbreak test/thing.js` gave a clean bill of health on a
