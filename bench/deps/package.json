@@ -1,0 +1,11 @@
+{
+  "name": "bench-fixture-deps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The three cross-platform tools some benchmark items use, installed once and shared.",
+  "dependencies": {
+    "cross-env": "7.0.3",
+    "rimraf": "5.0.10",
+    "shx": "0.3.4"
+  }
+}

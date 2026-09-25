@@ -1,0 +1,40 @@
+name: bench
+
+# Produces the labels for the "Works on My Mac" benchmark. Every item is run
+# for real on each OS and the outcome recorded; nothing is asserted in advance.
+# The job never fails on an item's outcome -- a Windows failure is the data.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "bench/**"
+      - ".github/workflows/bench.yml"
+
+jobs:
+  measure:
+    name: measure on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS is the "works on my Mac" reference: an item only counts if it
+        # works there. Windows is the answer. Linux is recorded for context.
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install the three shared tools (cross-env, rimraf, shx)
+        working-directory: bench/deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Run every item and record what happened
+        run: node bench/measure.js ci
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.os }}
+          path: bench/results/*-ci.json
