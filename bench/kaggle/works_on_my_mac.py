@@ -171,6 +171,9 @@ def breakdown(rows) -> dict:
               for pred in OUTCOMES + ("unparseable", "error")}
         for lab in OUTCOMES}
     out["wrong_items"] = sorted(r["item_id"] for r in rows if not r["correct"])
+    # Every answer, so the write-up can say what a model believed, not only
+    # that it was wrong.
+    out["predictions"] = {r["item_id"]: r["predicted"] for r in sorted(rows, key=lambda r: r["item_id"])}
     return out
 
 
@@ -203,8 +206,12 @@ def works_on_my_mac(llm) -> tuple[float, float]:
             rows.append({"item_id": item["item_id"], "label": item["label"],
                          "predicted": "error", "correct": False, "reason": "run failed"})
     result = breakdown(rows)
+    # Name the model in the log line, so results pasted from several runs can
+    # still be told apart.
+    result["model"] = str(getattr(llm, "model", None) or getattr(llm, "name", None) or type(llm).__name__)
+    result["ci_halfwidth"] = bootstrap_halfwidth(rows)
     print("WOMM_BREAKDOWN " + json.dumps(result, sort_keys=True))
-    return result["balanced_accuracy"], bootstrap_halfwidth(rows)
+    return result["balanced_accuracy"], result["ci_halfwidth"]
 
 
 # %%
