@@ -1,0 +1,190 @@
+# %% [markdown]
+# # Works on My Mac
+#
+# **Can a model predict what Node.js code does on Windows, when every answer
+# was produced by actually running the code there?**
+#
+# Each item is a short npm script or Node.js program that works on a Mac,
+# plus a plain statement of what its author intended. The model predicts what
+# happens on a stock Windows install with Node.js 24 and npm 11:
+#
+# - `works` -- exits 0 and does what the author intended
+# - `fails_loudly` -- non-zero exit, crash or uncaught error
+# - `fails_silently` -- exits 0, but does **not** do what was intended
+#
+# **The labels were not written by hand.** A harness ran every item on
+# macOS, Linux and two different Windows machines, with Windows' PATH reduced
+# to a stock install (Git for Windows puts `rm`, `cp`, `grep` and `ls` on PATH,
+# on developer machines *and* on GitHub's Windows runners, which would make
+# `rm -rf` "work"). An item is included only if it works on macOS and both
+# Windows machines agree. Harness, raw results and exclusions:
+# https://github.com/Hackierz/winbreak/tree/main/bench
+#
+# The hypothesis: famous error strings (`'NODE_ENV' is not recognized`) are
+# memorised; failures that exit 0 are not. The score is **balanced accuracy**
+# over the three outcomes, so answering "it breaks" to everything scores 1/3.
+
+# %%
+import json
+import random
+from dataclasses import dataclass
+
+import pandas as pd
+
+import kaggle_benchmarks as kbench
+
+# %%
+DATASET = json.loads(r'''{"items":[{"item_id":"npm-inline-env","kind":"npm","intent":"Run node with NODE_ENV set to production; it should print production.","code":"NODE_ENV=production node -e \"console.log(process.env.NODE_ENV)\"","files":{},"label":"fails_loudly"},{"item_id":"npm-inline-env-two","kind":"npm","intent":"Set two environment variables inline; node should print 12.","code":"A=1 B=2 node -e \"console.log(process.env.A + process.env.B)\"","files":{},"label":"fails_loudly"},{"item_id":"npm-export","kind":"npm","intent":"Export PORT and start node, which should print 3000.","code":"export PORT=3000 && node -e \"console.log(process.env.PORT)\"","files":{},"label":"fails_loudly"},{"item_id":"npm-rm-rf","kind":"npm","intent":"Delete the build directory, then print cleaned.","code":"rm -rf build && echo cleaned","files":{"build/old.txt":"stale"},"label":"fails_loudly"},{"item_id":"npm-cp","kind":"npm","intent":"Copy a.txt to b.txt.","code":"cp a.txt b.txt","files":{"a.txt":"hello"},"label":"fails_loudly"},{"item_id":"npm-mv","kind":"npm","intent":"Rename a.txt to b.txt.","code":"mv a.txt b.txt","files":{"a.txt":"hello"},"label":"fails_loudly"},{"item_id":"npm-mkdir-p","kind":"npm","intent":"Create the nested directory out/nested/deep.","code":"mkdir -p out/nested/deep","files":{},"label":"fails_loudly"},{"item_id":"npm-mkdir-plain","kind":"npm","intent":"Create a directory called out.","code":"mkdir out","files":{},"label":"works"},{"item_id":"npm-cat","kind":"npm","intent":"Print the contents of a.txt.","code":"cat a.txt","files":{"a.txt":"hello"},"label":"fails_loudly"},{"item_id":"npm-pipe-grep","kind":"npm","intent":"Pipe node's output through grep; ok should be printed.","code":"node -e \"console.log('ok')\" | grep ok","files":{},"label":"fails_loudly"},{"item_id":"npm-sleep","kind":"npm","intent":"Wait one second, then print done.","code":"sleep 1 && echo done","files":{},"label":"fails_loudly"},{"item_id":"npm-node-relative-slash","kind":"npm","intent":"Run scripts/build.js with node; it should print built.","code":"node ./scripts/build.js","files":{"scripts/build.js":"console.log('built');"},"label":"works"},{"item_id":"npm-dot-bin-path","kind":"npm","intent":"Remove the build directory using the locally installed rimraf binary.","code":"./node_modules/.bin/rimraf build","files":{"build/old.txt":"stale"},"label":"fails_loudly"},{"item_id":"npm-echo-single-quotes","kind":"npm","intent":"Print the words hello world.","code":"echo 'hello world'","files":{},"label":"fails_silently"},{"item_id":"npm-echo-double-quotes","kind":"npm","intent":"Print the words hello world.","code":"echo \"hello world\"","files":{},"label":"fails_silently"},{"item_id":"npm-echo-plain","kind":"npm","intent":"Print the words hello world.","code":"echo hello world","files":{},"label":"works"},{"item_id":"npm-dollar-var-arg","kind":"npm","intent":"Pass the package name (npm sets npm_package_name) to node, which prints it: bench-fixture.","code":"node -e \"console.log(process.argv[1])\" $npm_package_name","files":{},"label":"fails_silently"},{"item_id":"npm-single-quoted-arg","kind":"npm","intent":"Pass the single argument 'two words' to echo-arg.js, which prints its first argument.","code":"node echo-arg.js 'two words'","files":{"echo-arg.js":"console.log(process.argv[2]);"},"label":"fails_silently"},{"item_id":"npm-double-quoted-arg","kind":"npm","intent":"Pass the single argument \"two words\" to echo-arg.js, which prints its first argument.","code":"node echo-arg.js \"two words\"","files":{"echo-arg.js":"console.log(process.argv[2]);"},"label":"works"},{"item_id":"npm-semicolon","kind":"npm","intent":"Run two node commands one after the other, printing 1 and then 2.","code":"node -e \"console.log(1)\"; node -e \"console.log(2)\"","files":{},"label":"fails_silently"},{"item_id":"npm-or-fallback","kind":"npm","intent":"Run a command that fails, and print recovered when it does.","code":"node -e \"process.exit(1)\" || echo recovered","files":{},"label":"works"},{"item_id":"npm-and-chain","kind":"npm","intent":"Run two node commands in sequence, printing 1 and then 2.","code":"node -e \"console.log(1)\" && node -e \"console.log(2)\"","files":{},"label":"works"},{"item_id":"npm-redirect-file","kind":"npm","intent":"Write the letter x into out.txt.","code":"node -e \"console.log('x')\" > out.txt","files":{},"label":"works"},{"item_id":"npm-stderr-devnull","kind":"npm","intent":"Hide node's stderr noise and print ok.","code":"node -e \"console.error('noise'); console.log('ok')\" 2>/dev/null","files":{},"label":"fails_loudly"},{"item_id":"npm-stdout-devnull","kind":"npm","intent":"Discard node's output, then print done.","code":"node -e \"console.log('x')\" > /dev/null && echo done","files":{},"label":"fails_loudly"},{"item_id":"npm-cross-env","kind":"npm","intent":"Use cross-env to run node with NODE_ENV=production; it should print production.","code":"cross-env NODE_ENV=production node -e \"console.log(process.env.NODE_ENV)\"","files":{},"label":"works"},{"item_id":"npm-rimraf","kind":"npm","intent":"Delete the build directory with rimraf, then print cleaned.","code":"rimraf build && echo cleaned","files":{"build/old.txt":"stale"},"label":"works"},{"item_id":"npm-shx-cp","kind":"npm","intent":"Copy a.txt to b.txt using shx.","code":"shx cp a.txt b.txt","files":{"a.txt":"hello"},"label":"works"},{"item_id":"npm-test-f","kind":"npm","intent":"Print exists if package.json is present.","code":"test -f package.json && echo exists","files":{},"label":"fails_loudly"},{"item_id":"npm-command-substitution","kind":"npm","intent":"Pass the output of an inner node command (abc) to an outer node command that prints it.","code":"node -e \"console.log(process.argv[1])\" $(node -e \"process.stdout.write('abc')\")","files":{},"label":"fails_silently"},{"item_id":"npm-or-true","kind":"npm","intent":"Run a command that may fail, but never let the script as a whole fail.","code":"node -e \"process.exit(1)\" || true","files":{},"label":"fails_loudly"},{"item_id":"npm-cd-subdir","kind":"npm","intent":"Change into sub/ and check that x.txt is there; it should print true.","code":"cd sub && node -e \"console.log(require('fs').existsSync('x.txt'))\"","files":{"sub/x.txt":"x"},"label":"works"},{"item_id":"npm-package-version-env","kind":"npm","intent":"Print the package version, which npm exposes as npm_package_version: 1.0.0.","code":"node -e \"console.log(process.env.npm_package_version)\"","files":{},"label":"works"},{"item_id":"npm-glob-arg","kind":"npm","intent":"Pass every .txt file to node, which prints how many it received: 2.","code":"node -e \"console.log(process.argv.length - 1)\" *.txt","files":{"a.txt":"a","b.txt":"b"},"label":"fails_silently"},{"item_id":"npm-tilde-arg","kind":"npm","intent":"Pass the path ~/notes to node, which prints it; it should be expanded to the home directory.","code":"node -e \"console.log(process.argv[1])\" ~/notes","files":{},"label":"fails_silently"},{"item_id":"npm-which","kind":"npm","intent":"Print the path of the node executable.","code":"which node","files":{},"label":"fails_loudly"},{"item_id":"npm-ls","kind":"npm","intent":"List the files in the current directory; a.txt should appear.","code":"ls","files":{"a.txt":"a"},"label":"fails_loudly"},{"item_id":"js-spawn-npm","kind":"node","intent":"Run npm --version as a child process and print the version.","code":"const { spawn } = require(\"child_process\");\nconst child = spawn(\"npm\", [\"--version\"]);\nchild.stdout.on(\"data\", (d) => process.stdout.write(d));\nchild.on(\"close\", (code) => process.exit(code));","files":{},"label":"fails_loudly"},{"item_id":"js-spawnsync-npm-cmd","kind":"node","intent":"Run npm --version, using npm.cmd on Windows as is conventional, and print the version.","code":"const { spawnSync } = require(\"child_process\");\nconst npm = process.platform === \"win32\" ? \"npm.cmd\" : \"npm\";\nconst r = spawnSync(npm, [\"--version\"], { encoding: \"utf8\" });\nconsole.log(r.stdout.trim());","files":{},"label":"fails_loudly"},{"item_id":"js-spawnsync-npm-cmd-shell","kind":"node","intent":"Run npm --version, using npm.cmd on Windows and a shell, and print the version.","code":"const { spawnSync } = require(\"child_process\");\nconst npm = process.platform === \"win32\" ? \"npm.cmd\" : \"npm\";\nconst r = spawnSync(npm, [\"--version\"], { encoding: \"utf8\", shell: true });\nconsole.log(r.stdout.trim());","files":{},"label":"works"},{"item_id":"js-execsync-rm","kind":"node","intent":"Delete the build directory with a shell command, then print cleaned.","code":"const { execSync } = require(\"child_process\");\nexecSync(\"rm -rf build\");\nconsole.log(\"cleaned\");","files":{"build/old.txt":"stale"},"label":"fails_loudly"},{"item_id":"js-execsync-node","kind":"node","intent":"Print the version of node by running node --version.","code":"const { execSync } = require(\"child_process\");\nconsole.log(execSync(\"node --version\").toString().trim());","files":{},"label":"works"},{"item_id":"js-ps-swallowed","kind":"node","intent":"Print the name of the current process, or unknown if it cannot be determined; on a normal machine it should print node.","code":"const { execSync } = require(\"child_process\");\nlet name;\ntry {\n  name = execSync(\"ps -p \" + process.pid + \" -o comm=\").toString().trim();\n} catch (e) {\n  name = \"unknown\";\n}\nconsole.log(name.split(\"/\").pop());","files":{},"label":"fails_silently"},{"item_id":"js-require-wrong-case","kind":"node","intent":"Load the Utils module and print the number it exports: 42.","code":"console.log(require(\"./utils\"));","files":{"Utils.js":"module.exports = 42;"},"label":"works"},{"item_id":"js-readfile-wrong-case","kind":"node","intent":"Read the config file and print its name field: demo.","code":"const fs = require(\"fs\");\nconsole.log(JSON.parse(fs.readFileSync(\"./config.json\", \"utf8\")).name);","files":{"Config.json":"{\"name\":\"demo\"}"},"label":"works"},{"item_id":"js-colon-filename","kind":"node","intent":"Save a file called notes:draft.txt and confirm it appears in the directory listing (print true).","code":"const fs = require(\"fs\");\nfs.writeFileSync(\"notes:draft.txt\", \"x\");\nconsole.log(fs.readdirSync(\".\").includes(\"notes:draft.txt\"));","files":{},"label":"fails_silently"},{"item_id":"js-question-mark-filename","kind":"node","intent":"Save a report called report?.txt and print saved.","code":"const fs = require(\"fs\");\nfs.writeFileSync(\"report?.txt\", \"x\");\nconsole.log(\"saved\");","files":{},"label":"fails_loudly"},{"item_id":"js-trailing-dot-filename","kind":"node","intent":"Save a file called draft. (with a trailing dot) and confirm it appears in the listing under that exact name (print true).","code":"const fs = require(\"fs\");\nfs.writeFileSync(\"draft.\", \"x\");\nconsole.log(fs.readdirSync(\".\").includes(\"draft.\"));","files":{},"label":"works"},{"item_id":"js-reserved-name","kind":"node","intent":"Save a file called con.txt and print its contents back: hi.","code":"const fs = require(\"fs\");\nfs.writeFileSync(\"con.txt\", \"hi\");\nconsole.log(fs.readFileSync(\"con.txt\", \"utf8\"));","files":{},"label":"works"},{"item_id":"js-split-os-eol","kind":"node","intent":"Split a two-line string written with \\n into lines and print the line count: 2.","code":"const os = require(\"os\");\nconst text = \"first\\nsecond\";\nconsole.log(text.split(os.EOL).length);","files":{},"label":"fails_silently"},{"item_id":"js-split-path-slash","kind":"node","intent":"Print just the file name of the current script: main.js.","code":"console.log(__filename.split(\"/\").pop());","files":{},"label":"fails_silently"},{"item_id":"js-path-basename","kind":"node","intent":"Print just the file name of the current script: main.js.","code":"const path = require(\"path\");\nconsole.log(path.basename(__filename));","files":{},"label":"works"},{"item_id":"js-getuid","kind":"node","intent":"Print true if the current user's numeric id is available.","code":"console.log(typeof process.getuid() === \"number\");","files":{},"label":"fails_loudly"},{"item_id":"js-home-env","kind":"node","intent":"Print the path of ~/.myapprc using the user's home directory.","code":"const path = require(\"path\");\nconsole.log(path.join(process.env.HOME, \".myapprc\"));","files":{},"label":"fails_loudly"},{"item_id":"js-os-homedir","kind":"node","intent":"Print the path of ~/.myapprc using the user's home directory.","code":"const os = require(\"os\");\nconst path = require(\"path\");\nconsole.log(path.join(os.homedir(), \".myapprc\"));","files":{},"label":"works"},{"item_id":"js-chmod-exec-bit","kind":"node","intent":"Create run.sh and make it executable; print true if it is now executable.","code":"const fs = require(\"fs\");\nfs.writeFileSync(\"run.sh\", \"echo hi\\n\");\nfs.chmodSync(\"run.sh\", 0o755);\nconsole.log((fs.statSync(\"run.sh\").mode & 0o111) !== 0);","files":{},"label":"fails_silently"},{"item_id":"js-sigterm-cleanup","kind":"node","intent":"Start a worker that writes a cleaned marker when it receives SIGTERM, stop it with SIGTERM, and print true if cleanup ran.","code":"const { spawn } = require(\"child_process\");\nconst fs = require(\"fs\");\nconst code = \"process.on('SIGTERM', () => { require('fs').writeFileSync('cleaned', '1'); process.exit(0); });\" +\n  \"console.log('ready'); setInterval(() => {}, 1000);\";\nconst child = spawn(process.execPath, [\"-e\", code]);\nchild.stdout.once(\"data\", () => child.kill(\"SIGTERM\"));\nchild.on(\"exit\", () => console.log(fs.existsSync(\"cleaned\")));","files":{},"label":"fails_silently"},{"item_id":"js-self-signal-usr2","kind":"node","intent":"Listen for SIGUSR2 to trigger a reload, send it to ourselves, and print reload.","code":"process.on(\"SIGUSR2\", () => { console.log(\"reload\"); process.exit(0); });\nprocess.kill(process.pid, \"SIGUSR2\");\nsetTimeout(() => {}, 2000);","files":{},"label":"fails_loudly"},{"item_id":"js-unlink-open-file","kind":"node","intent":"Delete a.txt while it is still open for reading, and print true once it no longer exists.","code":"const fs = require(\"fs\");\nconst fd = fs.openSync(\"a.txt\", \"r\");\nfs.unlinkSync(\"a.txt\");\nconsole.log(!fs.existsSync(\"a.txt\"));\nfs.closeSync(fd);","files":{"a.txt":"data"},"label":"works"},{"item_id":"js-etc-hosts","kind":"node","intent":"Print true if the system hosts file at /etc/hosts exists.","code":"const fs = require(\"fs\");\nconsole.log(fs.existsSync(\"/etc/hosts\"));","files":{},"label":"fails_silently"},{"item_id":"js-execsync-echo-home","kind":"node","intent":"Ask the shell for $HOME and print it; it should be the home directory path.","code":"const { execSync } = require(\"child_process\");\nconsole.log(execSync(\"echo $HOME\").toString().trim());","files":{},"label":"fails_silently"},{"item_id":"js-path-join-forward-slash","kind":"node","intent":"Write data.txt inside out/ using path.join with a forward-slash segment, then print it back: ok.","code":"const fs = require(\"fs\");\nconst path = require(\"path\");\nfs.mkdirSync(path.join(__dirname, \"out\"), { recursive: true });\nfs.writeFileSync(path.join(__dirname, \"out/data.txt\"), \"ok\");\nconsole.log(fs.readFileSync(path.join(__dirname, \"out/data.txt\"), \"utf8\"));","files":{},"label":"works"},{"item_id":"esm-url-pathname","kind":"esm","intent":"Read this module's own source file and print true if it is non-empty.","code":"import fs from \"node:fs\";\nconst src = fs.readFileSync(new URL(import.meta.url).pathname, \"utf8\");\nconsole.log(src.length > 0);","files":{},"label":"fails_loudly"},{"item_id":"esm-fileurltopath","kind":"esm","intent":"Read this module's own source file and print true if it is non-empty.","code":"import fs from \"node:fs\";\nimport { fileURLToPath } from \"node:url\";\nconst src = fs.readFileSync(fileURLToPath(import.meta.url), \"utf8\");\nconsole.log(src.length > 0);","files":{},"label":"works"},{"item_id":"esm-import-absolute-path","kind":"esm","intent":"Dynamically import mod.mjs by its absolute path and print its default export: 7.","code":"import path from \"node:path\";\nconst mod = await import(path.resolve(\"mod.mjs\"));\nconsole.log(mod.default);","files":{"mod.mjs":"export default 7;"},"label":"fails_loudly"},{"item_id":"esm-import-file-url","kind":"esm","intent":"Dynamically import mod.mjs by its absolute path and print its default export: 7.","code":"import path from \"node:path\";\nimport { pathToFileURL } from \"node:url\";\nconst mod = await import(pathToFileURL(path.resolve(\"mod.mjs\")).href);\nconsole.log(mod.default);","files":{"mod.mjs":"export default 7;"},"label":"works"}]}''')
+df = pd.DataFrame(DATASET["items"])
+print(len(df), "items;", df.label.value_counts().to_dict())
+
+# %%
+OUTCOMES = ("works", "fails_loudly", "fails_silently")
+
+HOW_RUN = {
+    "npm": "It is an npm script named `t` in package.json, run with `npm run t`. "
+           "package.json has name \"bench-fixture\" and version \"1.0.0\", and "
+           "cross-env, rimraf and shx are installed in node_modules.",
+    "node": "It is saved as main.js (CommonJS) and run with `node main.js`.",
+    "esm": "It is saved as main.mjs (an ES module) and run with `node main.mjs`.",
+}
+
+PROMPT = """A developer wrote the code below on a Mac and tested it only there. On their Mac it works: it exits successfully and does exactly what they intended.
+
+Predict what happens when the same code runs on Windows 11 -- a fresh install with only Node.js 24 and npm 11 added, default settings, run from the directory described below.
+
+How it is run: {how}
+Other files already in the directory: {files}
+What the author intended: {intent}
+
+{code_label}:
+```
+{code}
+```
+
+Choose exactly one outcome:
+- works: exits with code 0 AND does what the author intended.
+- fails_loudly: exits with a non-zero code, crashes, or throws an uncaught error.
+- fails_silently: exits with code 0, but does NOT do what the author intended.
+
+Give the outcome and one sentence explaining why."""
+
+
+def render(kind, intent, code, files):
+    if files:
+        listed = "; ".join(f"{name} (contents: {body!r})" for name, body in files.items())
+    else:
+        listed = "none"
+    return PROMPT.format(
+        how=HOW_RUN[kind],
+        files=listed,
+        intent=intent,
+        code_label="The script" if kind == "npm" else "The code",
+        code=code,
+    )
+
+
+@dataclass
+class Verdict:
+    outcome: str
+    reason: str
+
+
+def normalise(raw) -> str:
+    t = str(raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if t in OUTCOMES:
+        return t
+    if "silent" in t:
+        return "fails_silently"
+    if "loud" in t or "error" in t or "crash" in t:
+        return "fails_loudly"
+    if t.startswith("work") or t in ("succeeds", "success", "ok"):
+        return "works"
+    return "unparseable"
+
+
+# %%
+@kbench.task(name="womm_item", store_task=False)
+def womm_item(llm, item_id, kind, intent, code, files, label) -> dict:
+    try:
+        verdict = llm.prompt(render(kind, intent, code, files), schema=Verdict)
+        predicted, reason = normalise(verdict.outcome), str(verdict.reason)
+    except Exception as e:  # a model that cannot answer gets the item wrong
+        predicted, reason = "unparseable", f"{type(e).__name__}: {e}"
+    return {
+        "item_id": item_id,
+        "label": label,
+        "predicted": predicted,
+        "correct": predicted == label,
+        "reason": reason[:300],
+    }
+
+
+def balanced_accuracy(rows) -> float:
+    recalls = []
+    for outcome in OUTCOMES:
+        in_class = [r for r in rows if r["label"] == outcome]
+        if in_class:
+            recalls.append(sum(r["correct"] for r in in_class) / len(in_class))
+    return sum(recalls) / len(recalls) if recalls else 0.0
+
+
+def breakdown(rows) -> dict:
+    out = {"n": len(rows), "balanced_accuracy": balanced_accuracy(rows),
+           "accuracy": sum(r["correct"] for r in rows) / len(rows) if rows else 0.0,
+           "unparseable": sum(r["predicted"] == "unparseable" for r in rows)}
+    for outcome in OUTCOMES:
+        in_class = [r for r in rows if r["label"] == outcome]
+        out[f"recall_{outcome}"] = (sum(r["correct"] for r in in_class) / len(in_class)) if in_class else None
+    # Right that it breaks, wrong about how: the gap between memorised error
+    # strings and understanding what the code does.
+    broken = [r for r in rows if r["label"] != "works"]
+    out["broken_detected"] = (sum(r["predicted"].startswith("fails") for r in broken) / len(broken)) if broken else None
+    out["wrong_failure_mode"] = sum(
+        r["predicted"].startswith("fails") and r["predicted"] != r["label"] for r in broken)
+    out["confusion"] = {
+        lab: {pred: sum(r["label"] == lab and r["predicted"] == pred for r in rows)
+              for pred in OUTCOMES + ("unparseable",)}
+        for lab in OUTCOMES}
+    out["wrong_items"] = sorted(r["item_id"] for r in rows if not r["correct"])
+    return out
+
+
+def bootstrap_halfwidth(rows, n=1000, seed=0) -> float:
+    rng = random.Random(seed)
+    stats = sorted(balanced_accuracy([rng.choice(rows) for _ in rows]) for _ in range(n))
+    return (stats[int(0.975 * n) - 1] - stats[int(0.025 * n)]) / 2
+
+
+# %%
+@kbench.task(name="works_on_my_mac")
+def works_on_my_mac(llm) -> tuple[float, float]:
+    with kbench.client.enable_cache():
+        runs = womm_item.evaluate(
+            llm=[llm],
+            evaluation_data=df,
+            on_failure="continue",
+            max_attempts=2,
+            retry_delay=10,
+            n_jobs=4,
+            timeout=180,
+        )
+    rows = [dict(r) for r in runs.completed_runs.as_dataframe().result]
+    # Runs that never completed count as wrong, not as missing: dropping them
+    # would quietly raise the model's score.
+    done = {r["item_id"] for r in rows}
+    for item in DATASET["items"]:
+        if item["item_id"] not in done:
+            rows.append({"item_id": item["item_id"], "label": item["label"],
+                         "predicted": "unparseable", "correct": False, "reason": "run failed"})
+    result = breakdown(rows)
+    print("WOMM_BREAKDOWN " + json.dumps(result, sort_keys=True))
+    return result["balanced_accuracy"], bootstrap_halfwidth(rows)
+
+
+# %%
+run = works_on_my_mac.run(kbench.llm)
+run
+
+# %%
+%choose works_on_my_mac

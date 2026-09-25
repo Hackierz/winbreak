@@ -1,0 +1,487 @@
+{
+  "env": {
+    "label": "ci",
+    "platform": "win32",
+    "release": "10.0.26100",
+    "arch": "x64",
+    "node": "v24.20.0",
+    "npm": "11.19.0",
+    "scriptShell": "null",
+    "comspec": "C:\\Windows\\system32\\cmd.exe",
+    "cleanEnv": false,
+    "homeSet": false,
+    "path": null,
+    "measuredAt": "2026-09-25T11:12:19.921Z"
+  },
+  "results": [
+    {
+      "id": "npm-inline-env",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'NODE_ENV' is not recognized as an internal or external command, | operable program or batch file."
+    },
+    {
+      "id": "npm-inline-env-two",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'A' is not recognized as an internal or external command, | operable program or batch file."
+    },
+    {
+      "id": "npm-export",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'export' is not recognized as an internal or external command, | operable program or batch file."
+    },
+    {
+      "id": "npm-rm-rf",
+      "outcome": "works",
+      "status": 0,
+      "out": "cleaned",
+      "err": ""
+    },
+    {
+      "id": "npm-cp",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-mv",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-mkdir-p",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "The syntax of the command is incorrect."
+    },
+    {
+      "id": "npm-mkdir-plain",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-cat",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello",
+      "err": ""
+    },
+    {
+      "id": "npm-pipe-grep",
+      "outcome": "works",
+      "status": 0,
+      "out": "ok",
+      "err": ""
+    },
+    {
+      "id": "npm-sleep",
+      "outcome": "works",
+      "status": 0,
+      "out": "done",
+      "err": ""
+    },
+    {
+      "id": "npm-node-relative-slash",
+      "outcome": "works",
+      "status": 0,
+      "out": "built",
+      "err": ""
+    },
+    {
+      "id": "npm-dot-bin-path",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'.' is not recognized as an internal or external command, | operable program or batch file."
+    },
+    {
+      "id": "npm-echo-single-quotes",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "'hello world'",
+      "err": ""
+    },
+    {
+      "id": "npm-echo-double-quotes",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "\"hello world\"",
+      "err": ""
+    },
+    {
+      "id": "npm-echo-plain",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello world",
+      "err": ""
+    },
+    {
+      "id": "npm-dollar-var-arg",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "$npm_package_name",
+      "err": ""
+    },
+    {
+      "id": "npm-single-quoted-arg",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "'two",
+      "err": ""
+    },
+    {
+      "id": "npm-double-quoted-arg",
+      "outcome": "works",
+      "status": 0,
+      "out": "two words",
+      "err": ""
+    },
+    {
+      "id": "npm-semicolon",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "1",
+      "err": ""
+    },
+    {
+      "id": "npm-or-fallback",
+      "outcome": "works",
+      "status": 0,
+      "out": "recovered",
+      "err": ""
+    },
+    {
+      "id": "npm-and-chain",
+      "outcome": "works",
+      "status": 0,
+      "out": "1\n2",
+      "err": ""
+    },
+    {
+      "id": "npm-redirect-file",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-stderr-devnull",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "The system cannot find the path specified."
+    },
+    {
+      "id": "npm-stdout-devnull",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "The system cannot find the path specified."
+    },
+    {
+      "id": "npm-cross-env",
+      "outcome": "works",
+      "status": 0,
+      "out": "production",
+      "err": ""
+    },
+    {
+      "id": "npm-rimraf",
+      "outcome": "works",
+      "status": 0,
+      "out": "cleaned",
+      "err": ""
+    },
+    {
+      "id": "npm-shx-cp",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-test-f",
+      "outcome": "works",
+      "status": 0,
+      "out": "exists",
+      "err": ""
+    },
+    {
+      "id": "npm-command-substitution",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "$(node",
+      "err": ""
+    },
+    {
+      "id": "npm-or-true",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-cd-subdir",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "npm-package-version-env",
+      "outcome": "works",
+      "status": 0,
+      "out": "1.0.0",
+      "err": ""
+    },
+    {
+      "id": "npm-glob-arg",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "1",
+      "err": ""
+    },
+    {
+      "id": "npm-tilde-arg",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "~/notes",
+      "err": ""
+    },
+    {
+      "id": "npm-which",
+      "outcome": "works",
+      "status": 0,
+      "out": "/c/hostedtoolcache/windows/node/24.20.0/x64/node",
+      "err": ""
+    },
+    {
+      "id": "npm-ls",
+      "outcome": "works",
+      "status": 0,
+      "out": "a.txt\nnode_modules\npackage.json",
+      "err": ""
+    },
+    {
+      "id": "js-spawn-npm",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:events:505 |     throw er; // Unhandled 'error' event |     ^"
+    },
+    {
+      "id": "js-spawnsync-npm-cmd",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\wom-SWYwFd\\js-spawnsync-npm-cmd\\main.js:4 | console.log(r.stdout.trim()); |                      ^"
+    },
+    {
+      "id": "js-spawnsync-npm-cmd-shell",
+      "outcome": "works",
+      "status": 0,
+      "out": "11.19.0",
+      "err": "(node:6952) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated. | (Use `node --trace-deprecation ...` to show where the warning was created)"
+    },
+    {
+      "id": "js-execsync-rm",
+      "outcome": "works",
+      "status": 0,
+      "out": "cleaned",
+      "err": ""
+    },
+    {
+      "id": "js-execsync-node",
+      "outcome": "works",
+      "status": 0,
+      "out": "v24.20.0",
+      "err": ""
+    },
+    {
+      "id": "js-ps-swallowed",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "unknown",
+      "err": "ps: unknown option -- o | Try `ps --help' for more information."
+    },
+    {
+      "id": "js-require-wrong-case",
+      "outcome": "works",
+      "status": 0,
+      "out": "42",
+      "err": ""
+    },
+    {
+      "id": "js-readfile-wrong-case",
+      "outcome": "works",
+      "status": 0,
+      "out": "demo",
+      "err": ""
+    },
+    {
+      "id": "js-colon-filename",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "false",
+      "err": ""
+    },
+    {
+      "id": "js-question-mark-filename",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:fs:2483 |     return binding.writeFileUtf8( |                    ^"
+    },
+    {
+      "id": "js-trailing-dot-filename",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-reserved-name",
+      "outcome": "works",
+      "status": 0,
+      "out": "hi",
+      "err": ""
+    },
+    {
+      "id": "js-split-os-eol",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "1",
+      "err": ""
+    },
+    {
+      "id": "js-split-path-slash",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\wom-SWYwFd\\js-split-path-slash\\main.js",
+      "err": ""
+    },
+    {
+      "id": "js-path-basename",
+      "outcome": "works",
+      "status": 0,
+      "out": "main.js",
+      "err": ""
+    },
+    {
+      "id": "js-getuid",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\wom-SWYwFd\\js-getuid\\main.js:1 | console.log(typeof process.getuid() === \"number\"); |                            ^"
+    },
+    {
+      "id": "js-home-env",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:internal/errors:543 |       throw error; |       ^"
+    },
+    {
+      "id": "js-os-homedir",
+      "outcome": "works",
+      "status": 0,
+      "out": "C:\\Users\\runneradmin\\.myapprc",
+      "err": ""
+    },
+    {
+      "id": "js-chmod-exec-bit",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "false",
+      "err": ""
+    },
+    {
+      "id": "js-sigterm-cleanup",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "false",
+      "err": ""
+    },
+    {
+      "id": "js-self-signal-usr2",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:internal/process/per_thread:272 |         throw new ERR_UNKNOWN_SIGNAL(sig); |         ^"
+    },
+    {
+      "id": "js-unlink-open-file",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-etc-hosts",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "false",
+      "err": ""
+    },
+    {
+      "id": "js-execsync-echo-home",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "$HOME",
+      "err": ""
+    },
+    {
+      "id": "js-symlink",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello",
+      "err": ""
+    },
+    {
+      "id": "js-path-join-forward-slash",
+      "outcome": "works",
+      "status": 0,
+      "out": "ok",
+      "err": ""
+    },
+    {
+      "id": "esm-url-pathname",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:fs:484 |     return binding.readFileUtf8(path, stringToFlags(options.flag)); |                    ^"
+    },
+    {
+      "id": "esm-fileurltopath",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "esm-import-absolute-path",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:internal/modules/esm/load:193 |     throw new ERR_UNSUPPORTED_ESM_URL_SCHEME(parsed, schemes); |           ^"
+    },
+    {
+      "id": "esm-import-file-url",
+      "outcome": "works",
+      "status": 0,
+      "out": "7",
+      "err": ""
+    }
+  ]
+}

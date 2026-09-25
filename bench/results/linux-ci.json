@@ -1,0 +1,487 @@
+{
+  "env": {
+    "label": "ci",
+    "platform": "linux",
+    "release": "6.17.0-1022-azure",
+    "arch": "x64",
+    "node": "v24.21.0",
+    "npm": "11.19.0",
+    "scriptShell": "null",
+    "comspec": null,
+    "cleanEnv": false,
+    "homeSet": true,
+    "path": null,
+    "measuredAt": "2026-09-25T11:11:59.743Z"
+  },
+  "results": [
+    {
+      "id": "npm-inline-env",
+      "outcome": "works",
+      "status": 0,
+      "out": "production",
+      "err": ""
+    },
+    {
+      "id": "npm-inline-env-two",
+      "outcome": "works",
+      "status": 0,
+      "out": "12",
+      "err": ""
+    },
+    {
+      "id": "npm-export",
+      "outcome": "works",
+      "status": 0,
+      "out": "3000",
+      "err": ""
+    },
+    {
+      "id": "npm-rm-rf",
+      "outcome": "works",
+      "status": 0,
+      "out": "cleaned",
+      "err": ""
+    },
+    {
+      "id": "npm-cp",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-mv",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-mkdir-p",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-mkdir-plain",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-cat",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello",
+      "err": ""
+    },
+    {
+      "id": "npm-pipe-grep",
+      "outcome": "works",
+      "status": 0,
+      "out": "ok",
+      "err": ""
+    },
+    {
+      "id": "npm-sleep",
+      "outcome": "works",
+      "status": 0,
+      "out": "done",
+      "err": ""
+    },
+    {
+      "id": "npm-node-relative-slash",
+      "outcome": "works",
+      "status": 0,
+      "out": "built",
+      "err": ""
+    },
+    {
+      "id": "npm-dot-bin-path",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-echo-single-quotes",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello world",
+      "err": ""
+    },
+    {
+      "id": "npm-echo-double-quotes",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello world",
+      "err": ""
+    },
+    {
+      "id": "npm-echo-plain",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello world",
+      "err": ""
+    },
+    {
+      "id": "npm-dollar-var-arg",
+      "outcome": "works",
+      "status": 0,
+      "out": "bench-fixture",
+      "err": ""
+    },
+    {
+      "id": "npm-single-quoted-arg",
+      "outcome": "works",
+      "status": 0,
+      "out": "two words",
+      "err": ""
+    },
+    {
+      "id": "npm-double-quoted-arg",
+      "outcome": "works",
+      "status": 0,
+      "out": "two words",
+      "err": ""
+    },
+    {
+      "id": "npm-semicolon",
+      "outcome": "works",
+      "status": 0,
+      "out": "1\n2",
+      "err": ""
+    },
+    {
+      "id": "npm-or-fallback",
+      "outcome": "works",
+      "status": 0,
+      "out": "recovered",
+      "err": ""
+    },
+    {
+      "id": "npm-and-chain",
+      "outcome": "works",
+      "status": 0,
+      "out": "1\n2",
+      "err": ""
+    },
+    {
+      "id": "npm-redirect-file",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-stderr-devnull",
+      "outcome": "works",
+      "status": 0,
+      "out": "ok",
+      "err": ""
+    },
+    {
+      "id": "npm-stdout-devnull",
+      "outcome": "works",
+      "status": 0,
+      "out": "done",
+      "err": ""
+    },
+    {
+      "id": "npm-cross-env",
+      "outcome": "works",
+      "status": 0,
+      "out": "production",
+      "err": ""
+    },
+    {
+      "id": "npm-rimraf",
+      "outcome": "works",
+      "status": 0,
+      "out": "cleaned",
+      "err": ""
+    },
+    {
+      "id": "npm-shx-cp",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-test-f",
+      "outcome": "works",
+      "status": 0,
+      "out": "exists",
+      "err": ""
+    },
+    {
+      "id": "npm-command-substitution",
+      "outcome": "works",
+      "status": 0,
+      "out": "abc",
+      "err": ""
+    },
+    {
+      "id": "npm-or-true",
+      "outcome": "works",
+      "status": 0,
+      "out": "",
+      "err": ""
+    },
+    {
+      "id": "npm-cd-subdir",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "npm-package-version-env",
+      "outcome": "works",
+      "status": 0,
+      "out": "1.0.0",
+      "err": ""
+    },
+    {
+      "id": "npm-glob-arg",
+      "outcome": "works",
+      "status": 0,
+      "out": "2",
+      "err": ""
+    },
+    {
+      "id": "npm-tilde-arg",
+      "outcome": "works",
+      "status": 0,
+      "out": "/home/runner/notes",
+      "err": ""
+    },
+    {
+      "id": "npm-which",
+      "outcome": "works",
+      "status": 0,
+      "out": "/opt/hostedtoolcache/node/24.21.0/x64/bin/node",
+      "err": ""
+    },
+    {
+      "id": "npm-ls",
+      "outcome": "works",
+      "status": 0,
+      "out": "a.txt\nnode_modules\npackage.json",
+      "err": ""
+    },
+    {
+      "id": "js-spawn-npm",
+      "outcome": "works",
+      "status": 0,
+      "out": "11.19.0",
+      "err": ""
+    },
+    {
+      "id": "js-spawnsync-npm-cmd",
+      "outcome": "works",
+      "status": 0,
+      "out": "11.19.0",
+      "err": ""
+    },
+    {
+      "id": "js-spawnsync-npm-cmd-shell",
+      "outcome": "works",
+      "status": 0,
+      "out": "11.19.0",
+      "err": "(node:2899) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated. | (Use `node --trace-deprecation ...` to show where the warning was created)"
+    },
+    {
+      "id": "js-execsync-rm",
+      "outcome": "works",
+      "status": 0,
+      "out": "cleaned",
+      "err": ""
+    },
+    {
+      "id": "js-execsync-node",
+      "outcome": "works",
+      "status": 0,
+      "out": "v24.21.0",
+      "err": ""
+    },
+    {
+      "id": "js-ps-swallowed",
+      "outcome": "fails_silently",
+      "status": 0,
+      "out": "MainThread",
+      "err": ""
+    },
+    {
+      "id": "js-require-wrong-case",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:internal/modules/cjs/loader:1568 |   throw err; |   ^"
+    },
+    {
+      "id": "js-readfile-wrong-case",
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:fs:483 |     return binding.readFileUtf8(path, stringToFlags(options.flag)); |                    ^"
+    },
+    {
+      "id": "js-colon-filename",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-question-mark-filename",
+      "outcome": "works",
+      "status": 0,
+      "out": "saved",
+      "err": ""
+    },
+    {
+      "id": "js-trailing-dot-filename",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-reserved-name",
+      "outcome": "works",
+      "status": 0,
+      "out": "hi",
+      "err": ""
+    },
+    {
+      "id": "js-split-os-eol",
+      "outcome": "works",
+      "status": 0,
+      "out": "2",
+      "err": ""
+    },
+    {
+      "id": "js-split-path-slash",
+      "outcome": "works",
+      "status": 0,
+      "out": "main.js",
+      "err": ""
+    },
+    {
+      "id": "js-path-basename",
+      "outcome": "works",
+      "status": 0,
+      "out": "main.js",
+      "err": ""
+    },
+    {
+      "id": "js-getuid",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-home-env",
+      "outcome": "works",
+      "status": 0,
+      "out": "/home/runner/.myapprc",
+      "err": ""
+    },
+    {
+      "id": "js-os-homedir",
+      "outcome": "works",
+      "status": 0,
+      "out": "/home/runner/.myapprc",
+      "err": ""
+    },
+    {
+      "id": "js-chmod-exec-bit",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-sigterm-cleanup",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-self-signal-usr2",
+      "outcome": "works",
+      "status": 0,
+      "out": "reload",
+      "err": ""
+    },
+    {
+      "id": "js-unlink-open-file",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-etc-hosts",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "js-execsync-echo-home",
+      "outcome": "works",
+      "status": 0,
+      "out": "/home/runner",
+      "err": ""
+    },
+    {
+      "id": "js-symlink",
+      "outcome": "works",
+      "status": 0,
+      "out": "hello",
+      "err": ""
+    },
+    {
+      "id": "js-path-join-forward-slash",
+      "outcome": "works",
+      "status": 0,
+      "out": "ok",
+      "err": ""
+    },
+    {
+      "id": "esm-url-pathname",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "esm-fileurltopath",
+      "outcome": "works",
+      "status": 0,
+      "out": "true",
+      "err": ""
+    },
+    {
+      "id": "esm-import-absolute-path",
+      "outcome": "works",
+      "status": 0,
+      "out": "7",
+      "err": ""
+    },
+    {
+      "id": "esm-import-file-url",
+      "outcome": "works",
+      "status": 0,
+      "out": "7",
+      "err": ""
+    }
+  ]
+}
