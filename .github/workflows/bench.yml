@@ -34,7 +34,14 @@ jobs:
       - name: Run every item and record what happened
         run: node bench/measure.js ci
 
+      # The labels come from this run, not the one above. GitHub's Windows
+      # image has Git's Unix tools on PATH, so as-is it reports that `rm -rf`
+      # works on Windows. Clean mode is a stock install: system folders + Node.
+      - name: Run again as a stock Windows install (the labels)
+        if: runner.os == 'Windows'
+        run: node bench/measure.js ci --clean-env
+
       - uses: actions/upload-artifact@v4
         with:
           name: bench-${{ matrix.os }}
-          path: bench/results/*-ci.json
+          path: bench/results/*-ci*.json

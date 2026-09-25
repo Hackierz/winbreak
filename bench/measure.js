@@ -1,9 +1,17 @@
 #!/usr/bin/env node
 // Run every benchmark item for real on this machine and record what happened.
 //
-//   node bench/measure.js <label>        e.g. local, ci
+//   node bench/measure.js <label>                e.g. local, ci
+//   node bench/measure.js <label> --clean-env    Windows: a stock install
 //
-// Writes bench/results/<platform>-<label>.json. The benchmark's labels come
+// Writes bench/results/<platform>-<label>[-clean].json.
+//
+// --clean-env exists because "two Windows machines agree" is not ground
+// truth. Git for Windows puts rm, cp, cat, grep, sleep, ls and even `true` on
+// PATH -- on this author's machine AND on GitHub's windows-latest runner -- so
+// both happily agreed that `rm -rf build` works on Windows. Clean mode runs
+// every item with PATH cut down to Windows' own system folders plus Node, and
+// HOME removed: what a fresh Windows install with only Node and npm has. The benchmark's labels come
 // from comparing these files across machines (see build-dataset.js); nothing
 // in items.js says what the answer is.
 "use strict";
@@ -17,7 +25,36 @@ const { spawnSync, execSync } = require("child_process");
 // skips by design -- otherwise the repo's own self-check would flag it.
 const items = require("./fixtures/items");
 
-const label = process.argv[2] || "local";
+const label = (process.argv[2] && !process.argv[2].startsWith("--")) ? process.argv[2] : "local";
+const clean = process.argv.includes("--clean-env");
+if (clean && process.platform !== "win32") {
+  console.error("--clean-env only means something on Windows");
+  process.exit(2);
+}
+
+// A stock Windows PATH, plus the directory Node was installed into (which is
+// also where npm.cmd and npx.cmd live). Nothing from Git, MSYS, Chocolatey or
+// anything else a developer machine or a CI image accumulates.
+function cleanWindowsEnv() {
+  const sysRoot = process.env.SystemRoot || "C:\\Windows";
+  const env = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    // Windows env names are case-insensitive but a plain object is not:
+    // drop every spelling of PATH so the child sees exactly one.
+    if (/^(path|home)$/i.test(k)) continue;
+    env[k] = v;
+  }
+  env.Path = [
+    path.join(sysRoot, "System32"),
+    sysRoot,
+    path.join(sysRoot, "System32", "Wbem"),
+    path.join(sysRoot, "System32", "WindowsPowerShell", "v1.0"),
+    path.join(sysRoot, "System32", "OpenSSH"),
+    path.dirname(process.execPath),
+  ].join(";");
+  return env;
+}
+const childEnv = clean ? cleanWindowsEnv() : process.env;
 const benchDir = __dirname;
 const fixtureModules = path.join(benchDir, "deps", "node_modules");
 const workRoot = fs.mkdtempSync(path.join(os.tmpdir(), "wom-"));
@@ -60,13 +97,13 @@ function runItem(item) {
     // `npm` is npm.cmd on Windows, which cannot be spawned without a shell.
     // The command string is fixed, so shell: true concatenates nothing unsafe.
     result = spawnSync("npm run -s t", {
-      cwd: dir, shell: true, encoding: "utf8", timeout: TIMEOUT_MS,
+      cwd: dir, shell: true, encoding: "utf8", timeout: TIMEOUT_MS, env: childEnv,
     });
   } else {
     const main = item.kind === "esm" ? "main.mjs" : "main.js";
     fs.writeFileSync(path.join(dir, main), item.code);
     result = spawnSync(process.execPath, [main], {
-      cwd: dir, encoding: "utf8", timeout: TIMEOUT_MS,
+      cwd: dir, encoding: "utf8", timeout: TIMEOUT_MS, env: childEnv,
     });
   }
 
@@ -106,7 +143,9 @@ const env = {
   npm: sh("npm --version"),
   scriptShell: sh("npm config get script-shell"),
   comspec: process.env.ComSpec || null,
-  homeSet: Boolean(process.env.HOME),
+  cleanEnv: clean,
+  homeSet: Boolean(childEnv.HOME),
+  path: clean ? childEnv.Path : null,
   measuredAt: new Date().toISOString(),
 };
 
@@ -119,11 +158,11 @@ for (const item of items) {
 }
 
 fs.mkdirSync(path.join(benchDir, "results"), { recursive: true });
-const outFile = path.join(benchDir, "results", `${process.platform}-${label}.json`);
+const outFile = path.join(benchDir, "results", `${process.platform}-${label}${clean ? "-clean" : ""}.json`);
 fs.writeFileSync(outFile, JSON.stringify({ env, results }, null, 2) + "\n");
 
 const tally = results.reduce((t, r) => ((t[r.outcome] = (t[r.outcome] || 0) + 1), t), {});
-console.log(`\n${results.length} items on ${process.platform} (${label}):`, JSON.stringify(tally));
+console.log(`\n${results.length} items on ${process.platform} (${label}${clean ? ", clean env" : ""}):`, JSON.stringify(tally));
 console.log("wrote", path.relative(process.cwd(), outFile));
 
 // Leave nothing behind in the temp directory.

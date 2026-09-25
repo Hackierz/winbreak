@@ -8,10 +8,10 @@
     "npm": "11.14.1",
     "scriptShell": "null",
     "comspec": "C:\\WINDOWS\\system32\\cmd.exe",
-    "cleanEnv": false,
-    "homeSet": true,
-    "path": null,
-    "measuredAt": "2026-09-25T11:11:06.523Z"
+    "cleanEnv": true,
+    "homeSet": false,
+    "path": "C:\\WINDOWS\\System32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0;C:\\WINDOWS\\System32\\OpenSSH;C:\\Program Files\\nodejs",
+    "measuredAt": "2026-09-25T11:11:27.823Z"
   },
   "results": [
     {
@@ -37,24 +37,24 @@
     },
     {
       "id": "npm-rm-rf",
-      "outcome": "works",
-      "status": 0,
-      "out": "cleaned",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'rm' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-cp",
-      "outcome": "works",
-      "status": 0,
+      "outcome": "fails_loudly",
+      "status": 1,
       "out": "",
-      "err": ""
+      "err": "'cp' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-mv",
-      "outcome": "works",
-      "status": 0,
+      "outcome": "fails_loudly",
+      "status": 1,
       "out": "",
-      "err": ""
+      "err": "'mv' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-mkdir-p",
@@ -72,24 +72,24 @@
     },
     {
       "id": "npm-cat",
-      "outcome": "works",
-      "status": 0,
-      "out": "hello",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'cat' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-pipe-grep",
-      "outcome": "works",
-      "status": 0,
-      "out": "ok",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 255,
+      "out": "",
+      "err": "'grep' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-sleep",
-      "outcome": "works",
-      "status": 0,
-      "out": "done",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'sleep' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-node-relative-slash",
@@ -212,10 +212,10 @@
     },
     {
       "id": "npm-test-f",
-      "outcome": "works",
-      "status": 0,
-      "out": "exists",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'test' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-command-substitution",
@@ -226,10 +226,10 @@
     },
     {
       "id": "npm-or-true",
-      "outcome": "works",
-      "status": 0,
+      "outcome": "fails_loudly",
+      "status": 1,
       "out": "",
-      "err": ""
+      "err": "'true' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-cd-subdir",
@@ -261,17 +261,17 @@
     },
     {
       "id": "npm-which",
-      "outcome": "works",
-      "status": 0,
-      "out": "/c/Program Files/nodejs/node",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'which' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "npm-ls",
-      "outcome": "works",
-      "status": 0,
-      "out": "a.txt\nnode_modules\npackage.json",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'ls' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "js-spawn-npm",
@@ -285,21 +285,21 @@
       "outcome": "fails_loudly",
       "status": 1,
       "out": "",
-      "err": "C:\\Users\\stanleyb\\AppData\\Local\\Temp\\wom-w2p5o6\\js-spawnsync-npm-cmd\\main.js:4 | console.log(r.stdout.trim()); |                      ^"
+      "err": "C:\\Users\\stanleyb\\AppData\\Local\\Temp\\wom-0vsEhh\\js-spawnsync-npm-cmd\\main.js:4 | console.log(r.stdout.trim()); |                      ^"
     },
     {
       "id": "js-spawnsync-npm-cmd-shell",
       "outcome": "works",
       "status": 0,
       "out": "11.14.1",
-      "err": "(node:27668) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated. | (Use `node --trace-deprecation ...` to show where the warning was created)"
+      "err": "(node:30268) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated. | (Use `node --trace-deprecation ...` to show where the warning was created)"
     },
     {
       "id": "js-execsync-rm",
-      "outcome": "works",
-      "status": 0,
-      "out": "cleaned",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "'rm' is not recognized as an internal or external command, | operable program or batch file. | node:child_process:1017"
     },
     {
       "id": "js-execsync-node",
@@ -313,7 +313,7 @@
       "outcome": "fails_silently",
       "status": 0,
       "out": "unknown",
-      "err": "ps: unknown option -- o | Try `ps --help' for more information."
+      "err": "'ps' is not recognized as an internal or external command, | operable program or batch file."
     },
     {
       "id": "js-require-wrong-case",
@@ -368,7 +368,7 @@
       "id": "js-split-path-slash",
       "outcome": "fails_silently",
       "status": 0,
-      "out": "C:\\Users\\stanleyb\\AppData\\Local\\Temp\\wom-w2p5o6\\js-split-path-slash\\main.js",
+      "out": "C:\\Users\\stanleyb\\AppData\\Local\\Temp\\wom-0vsEhh\\js-split-path-slash\\main.js",
       "err": ""
     },
     {
@@ -383,14 +383,14 @@
       "outcome": "fails_loudly",
       "status": 1,
       "out": "",
-      "err": "C:\\Users\\stanleyb\\AppData\\Local\\Temp\\wom-w2p5o6\\js-getuid\\main.js:1 | console.log(typeof process.getuid() === \"number\"); |                            ^"
+      "err": "C:\\Users\\stanleyb\\AppData\\Local\\Temp\\wom-0vsEhh\\js-getuid\\main.js:1 | console.log(typeof process.getuid() === \"number\"); |                            ^"
     },
     {
       "id": "js-home-env",
-      "outcome": "works",
-      "status": 0,
-      "out": "C:\\Users\\stanleyb\\.myapprc",
-      "err": ""
+      "outcome": "fails_loudly",
+      "status": 1,
+      "out": "",
+      "err": "node:internal/errors:543 |       throw error; |       ^"
     },
     {
       "id": "js-os-homedir",
