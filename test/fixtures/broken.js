@@ -54,4 +54,12 @@ function wipe(dir) {
   execSync(`rm -rf "${dir}"`, { stdio: "pipe" });
 }
 
-module.exports = { installDeps, runYarn, startElectron, isOurProcess, checkNode, assetPath, wipe, BRIDGE_DIR, LOCK_FILE };
+// 8. shell-true-args-array
+//    The old advice for a .cmd spawn. No EINVAL any more, but the args are
+//    concatenated unquoted: "Build Output" arrives as two arguments, and Node
+//    24 prints DEP0190.
+function runTsc(outDir) {
+  return spawn("tsc", ["--outDir", outDir], { stdio: "inherit", shell: true });
+}
+
+module.exports = { installDeps, runYarn, startElectron, isOurProcess, checkNode, assetPath, wipe, runTsc, BRIDGE_DIR, LOCK_FILE };

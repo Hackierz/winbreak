@@ -7,10 +7,14 @@ const path = require("path");
 const os = require("os");
 const fs = require("fs");
 
-// correct: shell: true is set for the batch file
-const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+// correct: run npm's own CLI with this node -- no .cmd, no shell, nothing to
+// quote. Inside an npm script npm_execpath is the npm that is running; outside
+// one it is unset, so fall back to the npm bundled with this node (which may
+// be a different version from the `npm` on PATH).
+const npmCli = process.env.npm_execpath ||
+  path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 function installDeps(dir) {
-  return spawn(npmCmd, ["install"], { cwd: dir, stdio: "inherit", shell: process.platform === "win32" });
+  return spawn(process.execPath, [npmCli, "install"], { cwd: dir, stdio: "inherit" });
 }
 
 // correct: resolves the real executable, no shim

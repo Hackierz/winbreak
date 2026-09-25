@@ -343,13 +343,18 @@ const q = "/tmp/other";
 
 | id | catches |
 |---|---|
-| `spawn-cmd-no-shell` | spawning a `.cmd` or `.bat` without `shell: true` → EINVAL |
+| `npm-script-inline-env` | `NODE_ENV=production node app.js` in an npm script: cmd.exe has no inline `VAR=value` |
+| `npm-script-posix-command` | an npm script calls `rm`, `cp`, `mkdir -p` … which cmd.exe does not have |
+| `npm-script-shell-var` | `$VAR` in an npm script: cmd.exe expands `%VAR%`, so the text is passed through literally |
+| `spawn-cmd-no-shell` | spawning a `.cmd` or `.bat` directly → EINVAL |
 | `spawn-bin-shim` | spawning an extensionless `node_modules/.bin/*` → ENOENT |
 | `posix-only-command` | shelling out to `ps`, `which`, `chmod`, `uname` … with no platform guard |
 | `hardcoded-posix-path` | `/tmp`, `/usr`, `/etc`, `/home` … written as a literal |
 | `shell-true-unquoted-path` | `shell: true` with a path that can contain spaces |
+| `shell-true-args-array` | an args array passed with `shell: true`: arguments are joined unquoted, so one with a space is split in two; Node 24 warns (DEP0190) *(smell)* |
 | `posix-path-concat` | building a path with `+ "/"` instead of `path.join` *(smell)* |
 | `case-sensitive-rm` | `rm -rf` used to delete a directory |
+| `import-case-mismatch` | an import whose case does not match the file on disk: fine on Windows and macOS, not found on Linux ([below](#the-one-that-goes-the-other-way)) |
 
 `winbreak --rules` prints the reasoning and the fix for each.
 
@@ -368,10 +373,18 @@ Specifically:
   has exactly that shape and winbreak does not flag it. The same single hop is
   followed for a path built from `process.env.ProgramFiles`, `__dirname` or
   `process.execPath` and then handed to a `shell: true` spawn.
+- **It only sees calls written out by name.** `spawn(...)`,
+  `cp.spawnSync(...)` and `child_process.execFile(...)` are read;
+  `promisify(execFile)("node", ["x.js"], { shell: true })` or a spawn passed
+  around as a variable is not. For `shell-true-args-array` the options must
+  be an object literal in the call itself: `spawn(cmd, args, opts)` is left
+  alone rather than guessed at.
+- **A call written inside a string or a `/* */` comment can still be
+  reported.** `//` comments are skipped; the other two are not yet.
 - **Test files are skipped by default**, because fixtures are full of
   deliberate POSIX paths. Pass `--include-tests` to scan them.
 - **Files over 2 MB are skipped**, on the assumption they are bundles.
-- **A clean run is not a promise.** It means these eleven patterns were not
+- **A clean run is not a promise.** It means these twelve patterns were not
   found. It does not mean your code runs on Windows.
 
 The right way to know your code works on Windows is to run it on Windows.

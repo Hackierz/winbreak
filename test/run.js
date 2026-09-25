@@ -69,6 +69,39 @@ const uq = scanFile(path.join(__dirname, "fixtures", "unquoted-path.js"))
 ok(JSON.stringify(uq) === "[6,14]",
   `flags lines 6 and 14 only (got [${uq}])`);
 
+// DEP0190. Which APIs warn was measured on Node 24.20.0, one per fresh
+// process: spawn, spawnSync, execFile, execFileSync do; exec, execSync, fork,
+// an empty args array and shell: false do not. The negatives matter more.
+console.log("\nshell-args.js — args array + shell, exactly the calls Node warns about");
+const shellArgs = scanFile(path.join(__dirname, "fixtures", "shell-args.js"));
+const sa = shellArgs
+  .filter((f) => f.rule === "shell-true-args-array")
+  .map((f) => f.line)
+  .sort((a, b) => a - b);
+ok(JSON.stringify(sa) === "[19,20,21,22,24,25,62,63,64]",
+  `flags lines 19,20,21,22,24,25,62,63,64 only (got [${sa}])`);
+// Review round: shell: undefined/null/"", `noshell`, a nested
+// npm_config_script_shell and a commented-out shell were all reported.
+ok(!shellArgs.some((f) => f.rule === "shell-true-args-array" && f.line >= 46 && f.line <= 58),
+  "falsy shell values, look-alike keys and commented-out shells do not fire");
+// A spaced path in cwd never reaches the command line.
+ok(!shellArgs.some((f) => f.rule === "shell-true-unquoted-path"),
+  "cwd: __dirname is not a spaced path on the command line");
+ok(shellArgs.every((f) => f.rule !== "shell-true-args-array" || f.severity === "smell"),
+  "it is a smell: it must never fail a build on its own");
+ok(!shellArgs.some((f) => f.rule === "spawn-cmd-no-shell"),
+  "npm.cmd with shell: true is not also reported as EINVAL");
+
+// One finding per call. When the command is a spaced path the bug-level rule
+// already says "drop shell: true" and names DEP0190.
+console.log("\nshell-true-args-array defers to shell-true-unquoted-path");
+const uqAll = scanFile(path.join(__dirname, "fixtures", "unquoted-path.js"));
+const uqArgs = uqAll.filter((f) => f.rule === "shell-true-args-array").map((f) => f.line);
+ok(JSON.stringify(uqArgs) === "[11]",
+  `only the call with no spaced path, line 11 (got [${uqArgs}])`);
+ok(!broken.some((f) => f.rule === "shell-true-args-array" && f.line === 44),
+  "process.execPath + shell: true is one finding, not two");
+
 // Regression: naming a file explicitly must scan it, even under test/. The
 // directory filter that hides fixtures was also hiding files the user asked
 // for by name, so `winbreak test/thing.js` gave a clean bill of health on a
