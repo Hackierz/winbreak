@@ -23,10 +23,13 @@
 # The hypothesis: famous error strings (`'NODE_ENV' is not recognized`) are
 # memorised; failures that exit 0 are not. The score is **balanced accuracy**
 # over the three outcomes, so answering "it breaks" to everything scores 1/3.
+# An answer that cannot be parsed, or an API call that still fails after three
+# tries, counts as wrong; the breakdown reports both counts separately.
 
 # %%
 import json
 import random
+import time
 from dataclasses import dataclass
 
 import pandas as pd
@@ -104,13 +107,33 @@ def normalise(raw) -> str:
 
 
 # %%
+# The SDK does not retry inside a nested evaluate() (it forces max_attempts=1),
+# so transient API errors are retried here. An answer the model gave but that
+# cannot be parsed is the model's own fault and is not retried.
+TRIES = 3
+RETRY_BACKOFF_S = 10
+
+
+def ask(llm, text):
+    for attempt in range(1, TRIES + 1):
+        try:
+            return llm.prompt(text, schema=Verdict)
+        except Exception as e:
+            if type(e).__name__ == "ResponseParsingError" or attempt == TRIES:
+                raise
+            time.sleep(RETRY_BACKOFF_S * attempt)
+
+
 @kbench.task(name="womm_item", store_task=False)
 def womm_item(llm, item_id, kind, intent, code, files, label) -> dict:
     try:
-        verdict = llm.prompt(render(kind, intent, code, files), schema=Verdict)
+        verdict = ask(llm, render(kind, intent, code, files))
         predicted, reason = normalise(verdict.outcome), str(verdict.reason)
-    except Exception as e:  # a model that cannot answer gets the item wrong
-        predicted, reason = "unparseable", f"{type(e).__name__}: {e}"
+    except Exception as e:
+        # Either way the item counts as wrong; the two are reported apart so
+        # the write-up can tell a confused model from a flaky API.
+        predicted = "unparseable" if type(e).__name__ == "ResponseParsingError" else "error"
+        reason = f"{type(e).__name__}: {e}"
     return {
         "item_id": item_id,
         "label": label,
@@ -132,7 +155,8 @@ def balanced_accuracy(rows) -> float:
 def breakdown(rows) -> dict:
     out = {"n": len(rows), "balanced_accuracy": balanced_accuracy(rows),
            "accuracy": sum(r["correct"] for r in rows) / len(rows) if rows else 0.0,
-           "unparseable": sum(r["predicted"] == "unparseable" for r in rows)}
+           "unparseable": sum(r["predicted"] == "unparseable" for r in rows),
+           "errors": sum(r["predicted"] == "error" for r in rows)}
     for outcome in OUTCOMES:
         in_class = [r for r in rows if r["label"] == outcome]
         out[f"recall_{outcome}"] = (sum(r["correct"] for r in in_class) / len(in_class)) if in_class else None
@@ -144,7 +168,7 @@ def breakdown(rows) -> dict:
         r["predicted"].startswith("fails") and r["predicted"] != r["label"] for r in broken)
     out["confusion"] = {
         lab: {pred: sum(r["label"] == lab and r["predicted"] == pred for r in rows)
-              for pred in OUTCOMES + ("unparseable",)}
+              for pred in OUTCOMES + ("unparseable", "error")}
         for lab in OUTCOMES}
     out["wrong_items"] = sorted(r["item_id"] for r in rows if not r["correct"])
     return out
@@ -164,19 +188,20 @@ def works_on_my_mac(llm) -> tuple[float, float]:
             llm=[llm],
             evaluation_data=df,
             on_failure="continue",
-            max_attempts=2,
-            retry_delay=10,
+            max_attempts=1,
             n_jobs=4,
             timeout=180,
         )
-    rows = [dict(r) for r in runs.completed_runs.as_dataframe().result]
+    # Iterate the runs, not as_dataframe(): with zero completed runs the SDK's
+    # empty frame has no "result" column.
+    rows = [dict(r.result) for r in runs.completed_runs]
     # Runs that never completed count as wrong, not as missing: dropping them
     # would quietly raise the model's score.
     done = {r["item_id"] for r in rows}
     for item in DATASET["items"]:
         if item["item_id"] not in done:
             rows.append({"item_id": item["item_id"], "label": item["label"],
-                         "predicted": "unparseable", "correct": False, "reason": "run failed"})
+                         "predicted": "error", "correct": False, "reason": "run failed"})
     result = breakdown(rows)
     print("WOMM_BREAKDOWN " + json.dumps(result, sort_keys=True))
     return result["balanced_accuracy"], bootstrap_halfwidth(rows)
